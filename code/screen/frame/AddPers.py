@@ -197,7 +197,7 @@ class AjoutPersonnelView(ctk.CTkFrame):
         # Mettre à jour la disposition pour refléter les nouveaux widgets
         self.dynamic_frame.update()
         
-    def submit_personnel_mock(self):
+    def submit_personnel_mock(self):#fonctiono test
         """ Simule l'envoi des données (logique de soumission). """
         messagebox.showwarning("Test","Vos données ont été bien soumis")
 
@@ -212,7 +212,7 @@ class AjoutPersonnelView(ctk.CTkFrame):
         form_frame.grid_columnconfigure((1, 3), weight=1) # Widgets: taille étirable
 
         
-        # --- SECTION 1: Champs de Personnel (Base) ---
+        # SECTION 1: Champs de Personnel
         row = 0
         
         self.entry_matricule = ctk.CTkEntry(form_frame, corner_radius=8, font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14))
@@ -233,23 +233,54 @@ class AjoutPersonnelView(ctk.CTkFrame):
         date_naissance_frame, self.entry_date_naissance = self.create_date_input_group(form_frame, "AAAA-MM-JJ")
         self.create_form_row(form_frame, "Date de Naissance :", date_naissance_frame, row, 0)
         
+        # État civil (célibataire ou marié avec/sans enfant)
+        """ 
+        Etat civil hafantarana izy priorite alefa en conge:
+        marié(e) avec enfant lo priorite volohan
+        marié(e) sans enfant aveo 
+        ceilibataire
+        """
+        situation = ["celibataire", "marié(e) sans enfant", "marié(e) avec enfant"]
+        self.var_situation = ctk.StringVar(value=situation[0])
+        self.combo_situation = ctk.CTkComboBox(
+            form_frame, 
+            values=situation, 
+            variable=self.var_situation, 
+            corner_radius=8, 
+            font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
+        )
+        self.create_form_row(form_frame, "État civil :", self.combo_situation, row, 2)
+        row += 1
+        
         # Date d'Entrée
         date_entree_frame, self.entry_date_entree = self.create_date_input_group(form_frame, "AAAA-MM-JJ")
-        self.create_form_row(form_frame, "Date d'Entrée :", date_entree_frame, row, 2)
-        row += 1
-
-        # Position (Combobox)
+        self.create_form_row(form_frame, "Date d'Entrée :", date_entree_frame, row, 0)
+        
+        # Position 
         positions = ["en activite", "en detachement", "hors cadre", "sous le drapeau", "en disponibilite", "en congé"]
         self.var_position = ctk.StringVar(value=positions[0])
-        self.combo_position = ctk.CTkComboBox(form_frame, values=positions, variable=self.var_position, corner_radius=8, font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14))
-        self.create_form_row(form_frame, "Position :", self.combo_position, row, 0)
+        self.combo_position = ctk.CTkComboBox(
+            form_frame, 
+            values=positions, 
+            variable=self.var_position, 
+            corner_radius=8, 
+            font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
+        )
+        self.create_form_row(form_frame, "Position :", self.combo_position, row, 2)
+        row += 1
         
         # Type de Personnel (Combobox) - Déclencheur du contenu dynamique
         types = ["Fonctionnaire", "Agent Contractuel"]
         self.var_type_personnel = ctk.StringVar(value=types[0])
-        self.combo_type_personnel = ctk.CTkComboBox(form_frame, values=types, variable=self.var_type_personnel, corner_radius=8, font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14),
-                                                     command=self.update_personnel_type_fields)
-        self.create_form_row(form_frame, "Type de Personnel :", self.combo_type_personnel, row, 2)
+        self.combo_type_personnel = ctk.CTkComboBox(
+            form_frame, 
+            values=types, 
+            variable=self.var_type_personnel, 
+            corner_radius=8, 
+            font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14),
+            command=self.update_personnel_type_fields
+        )
+        self.create_form_row(form_frame, "Type de Personnel :", self.combo_type_personnel, row, 0)
         row += 1
         
         # --- SECTION 2: Champs optionnels de Personnel (Sortie) ---
@@ -259,7 +290,12 @@ class AjoutPersonnelView(ctk.CTkFrame):
         self.create_form_row(form_frame, "Date de Sortie :", date_sortie_frame, row, 0)
         
         # Objet de Départ (Optionnel)
-        self.entry_objet_depart = ctk.CTkEntry(form_frame, placeholder_text="(Optionnel)", corner_radius=8, font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14))
+        self.entry_objet_depart = ctk.CTkEntry(
+            form_frame, 
+            placeholder_text="(Optionnel)", 
+            corner_radius=8, 
+            font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14)
+        )
         self.create_form_row(form_frame, "Objet de Départ :", self.entry_objet_depart, row, 2)
         row += 1
         
@@ -272,8 +308,13 @@ class AjoutPersonnelView(ctk.CTkFrame):
         row += 1
 
         # --- SECTION 4: Bouton de Soumission ---
-        self.ValiderBtn = ctk.CTkButton(form_frame, text="Créer le Personnel",
-                      command=self.submit_personnel_mock,
-                      font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=16, weight="bold"),
-                      fg_color=COLORS['PRIMARY_BLUE'], hover_color="#3670B3", corner_radius=8)
+        self.ValiderBtn = ctk.CTkButton(
+            form_frame, 
+            text="Créer le Personnel",
+            command=self.submit_personnel_mock,
+            font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=16, weight="bold"),
+            fg_color=COLORS['PRIMARY_BLUE'], 
+            hover_color="#3670B3", 
+            corner_radius=8
+        )
         self.ValiderBtn.grid(row=row, column=0, columnspan=4, pady=(30, 10), sticky="e")
