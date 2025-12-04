@@ -1,54 +1,53 @@
 #cadre = corps
 #classe pere de la classe  Grade
+import uuid
 class Cadre:
-    def __init__(self,id_cadre,classe_corps,chef_grade,nbr_grade,id_grade):
-        self.__id_cadre = id_cadre
+    def __init__(self, classe_corps, chef_grade,echelle):
+        self.__id_cadre = uuid.uuid4()
         self.__classe_corps = classe_corps
         self.__chef_grade = chef_grade
-        self.__nbr_grade = nbr_grade
-        self.__id_grade = id_grade
-    
-    
-    
-    #getter
+        self.__echelle = echelle
     @property
     def id_cadre(self):
         return self.__id_cadre
+    
+    @id_cadre.setter
+    def id_cadre(self, value):
+        self.__id_cadre = value
+        
     @property
     def classe_corps(self):
         return self.__classe_corps
+    
+    @classe_corps.setter
+    def classe_corps(self, value):
+        self.__classe_corps = value
+        
     @property
     def chef_grade(self):
         return self.__chef_grade
-    @property
-    def nbr_grade(self):
-        return self.__nbr_grade
-    @property
-    def id_grade(self):
-        return self.__id_grade
     
-    #setter
-    @property.setter
-    def id_cadre(self,id_cadre):
-        self.__id_cadre = id_cadre
+    @chef_grade.setter
+    def chef_grade(self, value):
+        self.__chef_grade = value
         
-    @property.setter
-    def classe_corps(self,classe_corps):
-        self.__classe_corps = classe_corps
-    @property.setter
-    def chef_grade(self,classe_grade):
-        self.__chef_grade = classe_grade
-    @property.setter
-    def nbr_grade(self,nbr_grade):
-        self.__nbr_grade = nbr_grade
-    @property.setter
-    def id_grade(self,id_grade):
-        self.__id_grade = id_grade
+
+    @property
+    def echelle(self):
+        return self.__echelle
+    @echelle.setter
+    def echelle(self,value):
+        self.__echelle = value
         
         
 """  
 Note: 
 chef_grade = grade le plus elevé d  ns le corps (cadre)
-nbr_grade = nombre de grade dans le corps (cadre)
-id_grade =  clet etrangere vers la table grade
+
+class_corps : A,B,C,D
+Echelle pour classe A : A1,A2,A3
+        pour classe B : B1,B2
+        pour classe C : C1,C2
+        pour classe D : D1,D2,D3
 """
+

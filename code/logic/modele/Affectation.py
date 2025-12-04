@@ -1,10 +1,8 @@
 #classe d'association entre Personnel et Emplois
-
-from . import Personnel,Emplois
-
+from uuid import uuid4
 class Affectation:
-    def __init__(self,id_affectation,date_debut,date_fin,personnel:Personnel,emplois:Emplois):
-        self._id_affectation = id_affectation
+    def __init__(self, date_debut, date_fin, personnel, emplois):
+        self._id_affectation = uuid4()
         self._date_debut = date_debut
         self._date_fin = date_fin
         self._personnel = personnel
@@ -13,6 +11,7 @@ class Affectation:
     @property
     def id_affectation(self):
         return self._id_affectation
+    
     @id_affectation.setter
     def id_affectation(self, value):
         self._id_affectation = value
@@ -20,6 +19,7 @@ class Affectation:
     @property
     def date_debut(self):
         return self._date_debut
+    
     @date_debut.setter
     def date_debut(self, value):
         self._date_debut = value
@@ -27,6 +27,7 @@ class Affectation:
     @property
     def date_fin(self):
         return self._date_fin
+    
     @date_fin.setter
     def date_fin(self, value):
         self._date_fin = value
@@ -34,16 +35,18 @@ class Affectation:
     @property
     def personnel(self):
         return self._personnel
+    
     @personnel.setter
     def personnel(self, value):
         self._personnel = value
+        
     @property
     def emplois(self):
         return self._emplois
+    
     @emplois.setter
     def emplois(self, value):
-        self._emplois = value
-        
+        self._emplois = value 
     
     """ 
     personnel: cle etrangere vers Personnel

@@ -1,4 +1,6 @@
-class Personnel:  
+#classe abstraite 
+from abc import ABC, abstractmethod
+class Personnel(ABC):  
     def __init__(self, num_matricule, nom, prenom, date_naissance, lieu_naissance, date_entree, date_sortie, objet_depart, position):
         self._num_matricule = num_matricule
         self._nom = nom
@@ -12,98 +14,104 @@ class Personnel:
         
     
     
+    
+    
     @property
+    @abstractmethod
     def num_matricule(self):
-        """Obtient le numéro de matricule."""
         return self._num_matricule
     
-    @num_matricule.setter  
+    
+    @num_matricule.setter
+    @abstractmethod  
     def num_matricule(self, value):
-        """Définit le numéro de matricule."""
         self._num_matricule = value
-
     
     @property
+    @abstractmethod
     def nom(self):
-        """Obtient le nom."""
         return self._nom
     
     @nom.setter
+    @abstractmethod
     def nom(self, value):
-        """Définit le nom."""
         self._nom = value
-
     
     @property
+    @abstractmethod
     def prenom(self):
         return self._prenom
     
     @prenom.setter
+    @abstractmethod
     def prenom(self, value):
         self._prenom = value
-
     
     @property
+    @abstractmethod
     def date_naissance(self):
         return self._date_naissance
     
     @date_naissance.setter
+    @abstractmethod
     def date_naissance(self, value):
         self._date_naissance = value
-
     
     @property
+    @abstractmethod
     def lieu_naissance(self):
         return self._lieu_naissance
     
     @lieu_naissance.setter
+    @abstractmethod
     def lieu_naissance(self, value):
         self._lieu_naissance = value
-
- 
+    
     @property
+    @abstractmethod
     def date_entree(self):
         return self._date_entree
     
     @date_entree.setter
+    @abstractmethod
     def date_entree(self, value):
         self._date_entree = value
-
     
     @property
+    @abstractmethod
     def date_sortie(self):
         return self._date_sortie
     
     @date_sortie.setter
+    @abstractmethod
     def date_sortie(self, value):
         self._date_sortie = value
-
     
     @property
+    @abstractmethod
     def objet_depart(self):
         return self._objet_depart
     
     @objet_depart.setter
+    @abstractmethod
     def objet_depart(self, value):
         self._objet_depart = value
-
-    
+   
     @property
+    @abstractmethod
     def position(self):
         return self._position
-    
+   
     @position.setter
+    @abstractmethod
     def position(self, value):
         self._position = value
 
-    
 
-
-    def __str__(self):
-         return f"Matricule: {self.num_matricule}, Nom: {self.nom}, Prénom: {self.prenom}"
-       
-
-
+  
+    @abstractmethod
+    def calcSoldeConge(self):
+        pass
 """ 
 NOTE:
 Position  peut prendre les valeurs suivantes:
@@ -113,4 +121,5 @@ Position  peut prendre les valeurs suivantes:
   -sous le drapeau 
   -en disponibilité
 
+calcSoldeConge : methode pour calculer le solde de congé
 """
