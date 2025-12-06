@@ -12,6 +12,40 @@ class Fonctionnaire(Personnel):
         self._diplome = diplome
         self._id_cadre = id_cadre
         self.id_fonc = uuid.uuid4()
+
+    # Dans la classe Fonctionnaire, ajoutez:
+
+    from logic.GestionAbsences import GestionAbsences
+
+    class Fonctionnaire(Personnel):
+        # ... code existant ...
+
+        def demander_permission(self, motif, date_debut, date_fin, lieu):
+            """Méthode pour demander une permission d'absence"""
+            gestion = GestionAbsences()
+            return gestion.creer_permission(
+                id_fonctionnaire=self.id_fonc,
+                motif=motif,
+                date_debut=date_debut,
+                date_fin=date_fin,
+                lieu=lieu
+            )
+
+        def demander_autorisation(self, type_auth, motif, date_debut, date_fin):
+            """Méthode pour demander une autorisation d'absence"""
+            gestion = GestionAbsences()
+            return gestion.creer_autorisation(
+                id_fonctionnaire=self.id_fonc,
+                type_auth=type_auth,
+                motif=motif,
+                date_debut=date_debut,
+                date_fin=date_fin
+            )
+
+        def get_statistiques_absences(self):
+            """Récupère les statistiques d'absence du fonctionnaire"""
+            gestion = GestionAbsences()
+            return gestion.get_statistiques_fonctionnaire(self.id_fonc)
         
      
      #setter   
