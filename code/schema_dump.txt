@@ -1,0 +1,8 @@
+--- Fonctionnaire ---
+['num_matricule', 'nom', 'prenom', 'date_naissance', 'lieu_naissance', 'date_entre', 'date_sorti', 'objet_depart', 'position', 'diplome', 'id_cadre', 'id_fonc']
+--- Affectation ---
+['id_affectation', 'date_debut', 'date_fin', 'id_emploi', 'id_fonc', 'id_ag']
+--- Emplois ---
+['id_emploi', 'nom_poste', 'dure', 'lieu']
+--- Grade ---
+['id_grade', 'titre', 'classe', 'echelon', 'id_cadre']

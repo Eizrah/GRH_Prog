@@ -25,19 +25,19 @@ DEFAULT_FONT_FAMILY = "Arial"
 
 
 class Bilan(ctk.CTkFrame):
-    def __init__(self, master, personnel_data, **kwargs):
+    def __init__(self, master, personnel_data, stats=None, **kwargs):
         if 'fg_color' not in kwargs:
             kwargs['fg_color'] = COLORS['BG_LIGHT_GREY']
         super().__init__(master, **kwargs)
         self.grid_columnconfigure((0, 1, 2), weight=1, uniform="bilan_cols")
         
-        total_personnel = len(personnel_data)
-        conges_approuves = 15  # Simulé
-        conges_en_attente = 3  # Simulé
+        # Stats par défaut si non fournies
+        if not stats:
+            stats = {"total": 0, "accepted": 0, "pending": 0}
 
-        self.create_card(0, "👤 Personnel Total", str(total_personnel), COLORS['PRIMARY_BLUE'])
-        self.create_card(1, "✅ Congés Approuvés", str(conges_approuves), COLORS['ACCENT_GREEN'])
-        self.create_card(2, "⏳ Congés en Attente", str(conges_en_attente), COLORS['ACCENT_RED'])
+        self.create_card(0, "📄 Demandes Totales", str(stats['total']), COLORS['PRIMARY_BLUE'])
+        self.create_card(1, "✅ Congés Approuvés", str(stats['accepted']), COLORS['ACCENT_GREEN'])
+        self.create_card(2, "⏳ Congés en Attente", str(stats['pending']), COLORS['ACCENT_RED'])
         
     def create_card(self, column, title, value, color):
         card = ctk.CTkFrame(self, fg_color=COLORS['CARD_WHITE'], corner_radius=12, height=120)
@@ -64,12 +64,15 @@ class DashboardView(ctk.CTkFrame):
         
         self.fonc_data, self.agent_data = self.fetch_data()
         all_data = self.fonc_data + self.agent_data
+        
+        # Récupération des stats réelles
+        stats = self.fetch_stats()
 
         title_label = ctk.CTkLabel(self, text="Tableau de bord", text_color=COLORS['TEXT_DARK'], anchor="w",
                                 font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=24, weight="bold"))
         title_label.grid(row=0, column=0, padx=25, pady=(20, 5), sticky="w")
 
-        self.bilan_frame = Bilan(self, all_data)
+        self.bilan_frame = Bilan(self, all_data, stats)
         self.bilan_frame.grid(row=1, column=0, padx=20, pady=0, sticky="new")
         
         self.tab_fonc = TableauDashboard(self, self.fonc_data, title="📋 Liste des Fonctionnaires")
@@ -140,6 +143,40 @@ class DashboardView(ctk.CTkFrame):
         except Exception as e:
             print(f"Erreur Fetch Data: {e}")
             return [], []
+
+    def fetch_stats(self):
+        """Récupère les statistiques des demandes de congé"""
+        try:
+            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Compte pour chaque table
+            tables = ['Conge', 'Permission', 'Autorisation']
+            
+            pending = 0
+            accepted = 0
+            
+            for table in tables:
+                # En Attente
+                cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE validation = 'En Attente'")
+                pending += cursor.fetchone()[0]
+                
+                # Accepté
+                cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE validation = 'Accepté'")
+                accepted += cursor.fetchone()[0]
+            
+            conn.close()
+            
+            return {
+                "total": pending + accepted, # Ou Count total rows si on veut aussi refusés
+                "pending": pending,
+                "accepted": accepted
+            }
+            
+        except Exception as e:
+            print(f"Erreur Fetch Stats: {e}")
+            return {"total": 0, "pending": 0, "accepted": 0}
 
     def set_controller(self, controller):
         self.controller = controller

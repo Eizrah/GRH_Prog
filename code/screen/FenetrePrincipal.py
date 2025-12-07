@@ -87,13 +87,18 @@ class Fenetreprincpale(ctk.CTk):
         """Méthode pour quitter l'application"""
         self.destroy()
 
-    def show_frame(self, page_name):
+    def show_frame(self, page_name, **kwargs):
         """ 
         Affiche la frame passée en argument et masque les autres.
         :param page_name: Nom de la classe de la vue à afficher (e.g., "DashboardView").
+        :param kwargs: Arguments optionnels à passer à la vue (ex: edit_matricule).
         """
         frame = self.frames.get(page_name)
         if frame:
+            # Si la frame a une méthode pour recevoir des données/params
+            if hasattr(frame, 'on_show'):
+                frame.on_show(**kwargs)
+            
             # Remonter la frame en haut de la pile (la rendre visible)
             frame.tkraise()
             
