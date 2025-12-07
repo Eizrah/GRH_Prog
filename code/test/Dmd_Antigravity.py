@@ -3,7 +3,7 @@ from tkinter import messagebox
 import sqlite3
 import os
 import sys
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from tkcalendar import Calendar
 
 # Ajouter le répertoire parent au path pour importer les modules logic
@@ -12,6 +12,7 @@ parent_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(parent_dir)
 sys.path.append(project_root)
 
+# Import de la fonction de calcul de congé cumulé
 # Import de la fonction de calcul de congé cumulé
 from logic.conge_cumule import calculer_conge_cumule
 from logic.GestionAbsences import GestionAbsences
@@ -26,13 +27,6 @@ COLORS = {
     "TEXT_DARK": "#374151",
     "TEXT_GREY": "#9CA3AF",
     "HEADER_BG": "#E5F0FF",
-}
-
-# Durées fixes pour certains types de congé
-FIXED_DURATIONS = {
-    "Congé maternité": 90,
-    "Congé paternité": 15,
-    "Autorisation d'absence ordinaire (3 jours max)": 3
 }
 
 DEFAULT_FONT_FAMILY = "Arial"
@@ -115,45 +109,20 @@ class Dmd(ctk.CTkFrame):
             
         ctk.CTkButton(top, text="Valider", command=set_date, 
                       fg_color=COLORS['ACCENT_GREEN']).pack(pady=10)
-                      
-    def calculer_duree_conge(self, date_debut_str: str, date_fin_str: str) -> int:
-        """
-        Calcule la durée en jours (inclusive) entre la date de début et la date de fin.
-        """
-        if not date_debut_str or not date_fin_str:
-            return 0
-        
-        d1, d2 = None, None
-        
-        # Essayer différents formats pour la date de début
-        for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d']:
-            try:
-                d1 = datetime.strptime(date_debut_str, fmt).date()
-                break
-            except ValueError:
-                pass
-        
-        # Essayer différents formats pour la date de fin
-        for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d']:
-            try:
-                d2 = datetime.strptime(date_fin_str, fmt).date()
-                break
-            except ValueError:
-                pass
-
-        if d1 and d2 and d2 >= d1:
-            # Durée inclusive (date_fin - date_debut + 1 jour)
-            duration = (d2 - d1).days + 1
-            return duration
-        
-        return 0
     
     def calculer_solde_conge(self, date_entree_str):
         """
         Calcule le solde de congé cumulé basé sur la date d'entrée
+        
+        Args:
+            date_entree_str (str): Date d'entrée au format string (peut être YYYY-MM-DD ou autre)
+        
+        Returns:
+            int: Solde de congé en jours
         """
         try:
-            # Date de demande = Date de début du congé (si remplie) ou aujourd'hui par défaut
+            # Date de demande = date actuelle
+            # Date de demande = date du champ "Date de début" ou aujourd'hui par défaut
             date_demande = date.today()
             if hasattr(self, 'entry_date_debut'):
                 val_date_debut = self.entry_date_debut.get()
@@ -165,23 +134,28 @@ class Dmd(ctk.CTkFrame):
                         except ValueError:
                             continue
             
-            # Parser la date d'entrée
+            # Parser la date d'entrée (peut être au format YYYY-MM-DD ou autre)
             if date_entree_str and date_entree_str != "-":
+                # Essayer différents formats de date
                 for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
                     try:
                         date_entree = datetime.strptime(date_entree_str, fmt).date()
                         # Calculer le congé cumulé en utilisant la fonction importée
+                        # Utiliser silent=True pour éviter les messages de débogage
                         solde = calculer_conge_cumule(date_entree, date_demande, jours_par_an=15, silent=True)
                         return solde
                     except ValueError:
                         continue
             
+            # Si la date n'est pas valide, retourner 0
             return 0
             
         except Exception as e:
             print(f"Erreur lors du calcul du solde de congé: {e}")
             return 0
 
+
+    
     def update_validation(self, event=None):
         """Valide la demande en temps réel et met à jour l'interface"""
         # 1. Récupérer les données
@@ -189,53 +163,12 @@ class Dmd(ctk.CTkFrame):
         date_debut_str = self.entry_date_debut.get() if hasattr(self, 'entry_date_debut') else ""
         date_fin_str = self.entry_date_fin.get() if hasattr(self, 'entry_date_fin') else ""
         
-        # Gestion immédiate de l'état du champ date de fin
-        if type_conge in FIXED_DURATIONS:
-             self.entry_date_fin.configure(state="disabled", fg_color=COLORS['BG_LIGHT_GREY'])
-        else:
-             self.entry_date_fin.configure(state="normal", fg_color=COLORS['CARD_WHITE'])
-
-        # Reset UI si incomplet (mais après avoir géré l'état du champ)
-        if not date_debut_str:
+        # Reset UI si incomplet
+        if not date_debut_str or not date_fin_str:
             self.lbl_val_status.configure(text="⏳ En attente des dates...", text_color=COLORS['TEXT_GREY'])
             self.lbl_val_details.configure(text="")
             self.request_valid = False
             return
-
-        # Gestion des durées fixes (Calcul auto)
-        if type_conge in FIXED_DURATIONS:
-            try:
-                # Essayer de parser la date de début
-                date_debut = None
-                for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d']:
-                    try:
-                        date_debut = datetime.strptime(date_debut_str, fmt).date()
-                        break
-                    except ValueError:
-                        continue
-                
-                if date_debut:
-                    duree_fixe = FIXED_DURATIONS[type_conge]
-                    # Date fin = date debut + duree - 1 jour
-                    date_fin = date_debut + timedelta(days=duree_fixe - 1)
-                    date_fin_str = date_fin.strftime('%d/%m/%Y')
-                    
-                    # Mettre à jour le champ (il faut temporairement réactiver)
-                    self.entry_date_fin.configure(state="normal")
-                    self.entry_date_fin.delete(0, 'end')
-                    self.entry_date_fin.insert(0, date_fin_str)
-                    self.entry_date_fin.configure(state="disabled")
-            except Exception as e:
-                print(f"Erreur calcul auto date fin: {e}")
-
-        # Si pas de date de fin (et pas fixe ou échec calcul), on attend
-        if not date_fin_str and type_conge not in FIXED_DURATIONS:
-             self.lbl_val_status.configure(text="⏳ En attente date fin...", text_color=COLORS['TEXT_GREY'])
-             self.request_valid = False
-             return
-             
-        # Si on a calculé une date de fin auto, on la reprend pour la validation
-        date_fin_str = self.entry_date_fin.get()
 
         # Récupérer solde (0 par défaut si pas de personnel sélectionné)
         solde = 0
@@ -267,24 +200,6 @@ class Dmd(ctk.CTkFrame):
         if not matricule:
             messagebox.showwarning("Attention", "Veuillez entrer un numéro de matricule")
             return
-            
-        # Récupérer les données de la demande
-        type_conge = self.combo_type_conge.get()
-        motif = self.entry_motif.get("1.0", "end-1c").strip()
-        date_debut = self.entry_date_debut.get()
-        date_fin = self.entry_date_fin.get()
-        
-        # Calculer la durée demandée
-        duree_demandee = self.calculer_duree_conge(date_debut, date_fin)
-        
-        # Initialiser les données de la demande pour l'affichage
-        demande_data = {
-            "type_conge": type_conge,
-            "motif": motif,
-            "date_debut": date_debut,
-            "date_fin": date_fin,
-            "duree_demandee": duree_demandee
-        }
         
         try:
             # Construire le chemin vers la base de données
@@ -311,9 +226,6 @@ class Dmd(ctk.CTkFrame):
             result_fonc = cursor.fetchone()
             
             if result_fonc:
-                date_embauche = result_fonc[8] if result_fonc[8] else "-"
-                solde_conge = self.calculer_solde_conge(date_embauche)
-                
                 # Personnel trouvé dans la table Fonctionnaire
                 data = {
                     "matricule": result_fonc[0] if result_fonc[0] else "-",
@@ -325,25 +237,12 @@ class Dmd(ctk.CTkFrame):
                     "classe": result_fonc[5] if result_fonc[5] else "-",
                     "echelle": result_fonc[6] if result_fonc[6] else "-",
                     "corps": result_fonc[7] if result_fonc[7] else "-",
-                    "date_embauche": date_embauche,
-                    "solde_conge": solde_conge
+                    "date_embauche": result_fonc[8] if result_fonc[8] else "-",
+                    "solde_conge": self.calculer_solde_conge(result_fonc[8] if result_fonc[8] else "-")
                 }
                 self.current_personnel_data = data
                 conn.close()
-                
-                # Validation du solde pour le congé annuel
-                if type_conge in ["Congé annuel", "Congé annuel cumulé"]:
-                    if duree_demandee > solde_conge:
-                        messagebox.showerror("Erreur de Solde Insuffisant", 
-                                             f"La durée demandée ({duree_demandee} jours) pour le Congé annuel/cumulé "
-                                             f"est supérieure au solde disponible ({solde_conge} jours).\n\n"
-                                             f"Veuillez ajuster la durée ou choisir un autre type de congé.")
-                        self.request_valid = False
-                    else:
-                        # Mise à jour de la validation
-                        self.update_validation()
-                
-                self.afficher_resume_personnel(data, demande_data)
+                self.afficher_resume_personnel(data)
                 return
             
             # Chercher dans la table AgentContractuel si non trouvé dans Fonctionnaire
@@ -360,9 +259,6 @@ class Dmd(ctk.CTkFrame):
             result_agent = cursor.fetchone()
             
             if result_agent:
-                date_embauche = result_agent[8] if result_agent[8] else "-"
-                solde_conge = self.calculer_solde_conge(date_embauche)
-                
                 # Personnel trouvé dans la table AgentContractuel
                 data = {
                     "matricule": result_agent[0] if result_agent[0] else "-",
@@ -374,25 +270,12 @@ class Dmd(ctk.CTkFrame):
                     "classe": result_agent[5] if result_agent[5] else "-",
                     "echelle": result_agent[6] if result_agent[6] else "-",
                     "corps": result_agent[7] if result_agent[7] else "-",
-                    "date_embauche": date_embauche,
-                    "solde_conge": solde_conge
+                    "date_embauche": result_agent[8] if result_agent[8] else "-",
+                    "solde_conge": self.calculer_solde_conge(result_agent[8] if result_agent[8] else "-")
                 }
                 self.current_personnel_data = data
                 conn.close()
-                
-                # Validation du solde pour le congé annuel
-                if type_conge in ["Congé annuel", "Congé annuel cumulé"]:
-                    if duree_demandee > solde_conge:
-                        messagebox.showerror("Erreur de Solde Insuffisant", 
-                                             f"La durée demandée ({duree_demandee} jours) pour le Congé annuel/cumulé "
-                                             f"est supérieure au solde disponible ({solde_conge} jours).\n\n"
-                                             f"Veuillez ajuster la durée ou choisir un autre type de congé.")
-                        self.request_valid = False
-                    else:
-                        # Mise à jour de la validation
-                        self.update_validation()
-                
-                self.afficher_resume_personnel(data, demande_data)
+                self.afficher_resume_personnel(data)
                 return
             
             # Si non trouvé dans les deux tables
@@ -410,14 +293,14 @@ class Dmd(ctk.CTkFrame):
                                f"Une erreur inattendue s'est produite:\n{str(e)}")
             print(f"Erreur: {e}")
     
-    def afficher_resume_personnel(self, data, demande_data=None):
-        """Affiche le résumé des informations du personnel et les détails de la demande"""
+    def afficher_resume_personnel(self, data):
+        """Affiche le résumé des informations du personnel"""
         # Vider le cadre de résumé
         for widget in self.resume_frame.winfo_children():
             widget.destroy()
         
-        # --- SECTION 1: Résumé du Personnel ---
-        ctk.CTkLabel(self.resume_frame, text="👤 Résumé du Demandeur", 
+        # Titre du résumé
+        ctk.CTkLabel(self.resume_frame, text="📋 Résumé du Personnel", 
                      font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=16, weight="bold"),
                      text_color=COLORS['PRIMARY_BLUE']).pack(anchor="w", pady=(0, 15))
         
@@ -448,15 +331,38 @@ class Dmd(ctk.CTkFrame):
         
         # Informations spécifiques selon le type
         if data['type'] == "Fonctionnaire":
-            self.create_info_row(info_frame, "Diplôme:", data.get('diplome', '-'), row); row += 1
-            self.create_info_row(info_frame, "Classe:", data.get('classe', '-'), row); row += 1
-            self.create_info_row(info_frame, "Échelle:", data.get('echelle', '-'), row); row += 1
-            self.create_info_row(info_frame, "Corps:", data.get('corps', '-'), row); row += 1
+            # Diplôme
+            self.create_info_row(info_frame, "Diplôme:", data.get('diplome', '-'), row)
+            row += 1
+            
+            # Classe
+            self.create_info_row(info_frame, "Classe:", data.get('classe', '-'), row)
+            row += 1
+            
+            # Échelle
+            self.create_info_row(info_frame, "Échelle:", data.get('echelle', '-'), row)
+            row += 1
+            
+            # Corps
+            self.create_info_row(info_frame, "Corps:", data.get('corps', '-'), row)
+            row += 1
         else:
-            self.create_info_row(info_frame, "Statut:", data.get('statut', '-'), row); row += 1
-            self.create_info_row(info_frame, "Classe:", data.get('classe', '-'), row); row += 1
-            self.create_info_row(info_frame, "Échelle:", data.get('echelle', '-'), row); row += 1
-            self.create_info_row(info_frame, "Corps:", data.get('corps', '-'), row); row += 1
+            # Agent Contractuel
+            # Statut
+            self.create_info_row(info_frame, "Statut:", data.get('statut', '-'), row)
+            row += 1
+            
+            # Classe
+            self.create_info_row(info_frame, "Classe:", data.get('classe', '-'), row)
+            row += 1
+            
+            # Échelle
+            self.create_info_row(info_frame, "Échelle:", data.get('echelle', '-'), row)
+            row += 1
+            
+            # Corps
+            self.create_info_row(info_frame, "Corps:", data.get('corps', '-'), row)
+            row += 1
         
         # Date d'embauche
         self.create_info_row(info_frame, "Date d'embauche:", data.get('date_embauche', '-'), row)
@@ -466,55 +372,7 @@ class Dmd(ctk.CTkFrame):
         solde_conge = data.get('solde_conge', 0)
         solde_color = COLORS['ACCENT_GREEN'] if solde_conge > 10 else COLORS['ACCENT_RED']
         self.create_info_row(info_frame, "Solde de congé:", f"{solde_conge} jours", row, solde_color)
-        
-        # --- SECTION 2: Détails de la Demande ---
-        if demande_data and demande_data['type_conge']:
-            # Ligne de séparation visuelle
-            ctk.CTkFrame(self.resume_frame, height=2, fg_color=COLORS['TEXT_GREY']).pack(fill="x", pady=15)
 
-            ctk.CTkLabel(self.resume_frame, text="📄 Détails de la Demande", 
-                         font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=16, weight="bold"),
-                         text_color=COLORS['PRIMARY_BLUE']).pack(anchor="w", pady=(0, 15))
-            
-            demande_info_frame = ctk.CTkFrame(self.resume_frame, fg_color=COLORS['BG_LIGHT_GREY'], corner_radius=10)
-            demande_info_frame.pack(fill="x", pady=5)
-            demande_info_frame.grid_columnconfigure(0, weight=1)
-            demande_info_frame.grid_columnconfigure(1, weight=2)
-            
-            r = 0
-            
-            # Type de congé/absence
-            self.create_info_row(demande_info_frame, "Type de Demande:", demande_data['type_conge'], r)
-            r += 1
-
-            # Durée demandée
-            duree = demande_data['duree_demandee']
-            duree_color = COLORS['TEXT_DARK']
-            
-            # Mise en évidence si solde insuffisant pour le congé annuel
-            if demande_data['type_conge'] in ["Congé annuel", "Congé annuel cumulé"] and duree > solde_conge:
-                duree_color = COLORS['ACCENT_RED']
-            
-            self.create_info_row(demande_info_frame, "Durée demandée:", f"{duree} jours", r, duree_color)
-            r += 1
-            
-            # Période
-            if demande_data['date_debut'] and demande_data['date_fin']:
-                self.create_info_row(demande_info_frame, "Période:", f"Du {demande_data['date_debut']} au {demande_data['date_fin']}", r)
-                r += 1
-            
-            # Motif
-            motif_display = demande_data['motif'] if len(demande_data['motif']) <= 50 else demande_data['motif'][:50] + "..."
-            self.create_info_row(demande_info_frame, "Motif (Extrait):", motif_display or "-", r)
-            r += 1
-            
-            # Rappel de la validation (pour information visuelle)
-            if duree_color == COLORS['ACCENT_RED']:
-                 ctk.CTkLabel(self.resume_frame, 
-                              text=f"⚠️ La durée demandée est supérieure au solde de congé disponible.", 
-                              text_color=COLORS['ACCENT_RED'],
-                              font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14, weight="bold")
-                              ).pack(fill="x", pady=10)
     
     def create_info_row(self, parent, label, value, row, value_color=None):
         """Crée une ligne d'information dans le résumé"""
@@ -541,21 +399,11 @@ class Dmd(ctk.CTkFrame):
             messagebox.showwarning("Attention", "Veuillez remplir tous les champs obligatoires")
             return
             
-        # Validation technique via le gestionnaire
+        # Vérification de la validation technique
         if not self.request_valid:
             messagebox.showerror("Erreur", "La demande est invalide (voir section validation).\nVeuillez corriger les dates ou le type de congé.")
             return
         
-        # Validation supplémentaire pour le congé annuel/cumulé
-        duree_demandee = self.calculer_duree_conge(date_debut, date_fin)
-        solde_conge = self.calculer_solde_conge(self.get_date_embauche_from_matricule(matricule))
-
-        if type_conge in ["Congé annuel", "Congé annuel cumulé"] and duree_demandee > solde_conge and solde_conge > 0:
-             messagebox.showerror("Erreur de Soumission", 
-                                  f"IMPOSSIBLE de soumettre : La durée demandée ({duree_demandee} jours) "
-                                  f"est supérieure au solde de congé disponible ({solde_conge} jours).")
-             return
-
         # Préparer les données
         data = {
             "matricule": matricule,
@@ -570,38 +418,11 @@ class Dmd(ctk.CTkFrame):
                           f"Demande de congé soumise avec succès!\n\n"
                           f"Matricule: {matricule}\n"
                           f"Type: {type_conge}\n"
-                          f"Durée demandée: {duree_demandee} jours\n"
-                          f"Motif: {motif[:50]}...")
+                          f"Motif: {motif}")
         
         # Si un contrôleur est défini, lui passer les données
         if self.controller and hasattr(self.controller, 'ajouter_demande'):
             self.controller.ajouter_demande(data)
-            
-    def get_date_embauche_from_matricule(self, matricule):
-        """Récupère la date d'embauche sans refaire toute la recherche"""
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            project_root = os.path.dirname(parent_dir)
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('SELECT date_entre FROM Fonctionnaire WHERE num_matricule = ?', (matricule,))
-            result = cursor.fetchone()
-            if result:
-                conn.close()
-                return result[0]
-                
-            cursor.execute('SELECT date_entre FROM AgentContractuel WHERE num_matricule = ?', (matricule,))
-            result = cursor.fetchone()
-            
-            conn.close()
-            return result[0] if result else "-"
-            
-        except Exception:
-            return "-"
     
     def create_demande_view(self, parent):
         """Crée l'interface de demande de congé"""
@@ -637,11 +458,10 @@ class Dmd(ctk.CTkFrame):
             "Congé maladie", 
             "Congé maternité",
             "Congé paternité",
+            "Congé sans solde",
             "Congé formation",
-            "Congé pour éducation",
-            "Permission d'absence",
-            "Autorisation d'absence ordinaire (3 jours max)",
-            "Autorisation d'absence spéciale",
+            "Absence exceptionnelle",
+            "Congé pour événements familiaux"
         ]
         self.combo_type_conge = ctk.CTkComboBox(form1, values=types_conge, corner_radius=8,
                                                font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14))
@@ -650,11 +470,11 @@ class Dmd(ctk.CTkFrame):
         row += 1
         
         # Dates (optionnelles)
-        date_debut_frame, self.entry_date_debut = self.create_date_input_group(form1, "Date de début (jj/mm/aaaa)")
+        date_debut_frame, self.entry_date_debut = self.create_date_input_group(form1, "Date de début (Optionnel)")
         self.create_form_row(form1, "Date de début :", date_debut_frame, row)
         row += 1
         
-        date_fin_frame, self.entry_date_fin = self.create_date_input_group(form1, "Date de fin (jj/mm/aaaa)")
+        date_fin_frame, self.entry_date_fin = self.create_date_input_group(form1, "Date de fin (Optionnel)")
         self.create_form_row(form1, "Date de fin :", date_fin_frame, row)
         row += 1
         
@@ -665,7 +485,7 @@ class Dmd(ctk.CTkFrame):
         self.create_form_row(form1, "Motif :", self.entry_motif, row)
         row += 1
 
-        # --- SECTION VALIDATION ---
+        # --- SECTION VALIDATION (Nouveau) ---
         validation_frame = ctk.CTkFrame(form1, fg_color=COLORS['BG_LIGHT_GREY'], corner_radius=8)
         validation_frame.grid(row=row, column=0, columnspan=2, padx=10, pady=20, sticky="ew")
         validation_frame.grid_columnconfigure(1, weight=1)
@@ -679,13 +499,12 @@ class Dmd(ctk.CTkFrame):
         # Détails (Durée, etc.)
         self.lbl_val_details = ctk.CTkLabel(validation_frame, text="", 
                                           font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=13),
-                                          justify="left", text_color=COLORS['TEXT_DARK'],
-                                          wraplength=500) # Wrap text pour éviter coupure
+                                          justify="left", text_color=COLORS['TEXT_DARK'])
         self.lbl_val_details.pack(anchor="w", padx=15, pady=(0, 10))
 
         # Bindings pour validation en temps réel
         self.combo_type_conge.configure(command=self.update_validation)
-        self.entry_matricule.bind("<FocusOut>", self.update_validation)
+        self.entry_matricule.bind("<FocusOut>", self.update_validation) # Pour vérifier solde si dispo
         if hasattr(self, 'entry_date_debut'):
             self.entry_date_debut.bind("<KeyRelease>", self.update_validation)
             self.entry_date_debut.bind("<FocusOut>", self.update_validation)
@@ -694,7 +513,7 @@ class Dmd(ctk.CTkFrame):
             self.entry_date_fin.bind("<FocusOut>", self.update_validation)
         
         # --- DEUXIÈME BLOC: Résumé du personnel ---
-        card2, form2 = self.create_card_frame(parent, "👤 Résumé du Demandeur et de la Demande")
+        card2, form2 = self.create_card_frame(parent, "👤 Résumé du Demandeur")
         card2.pack(fill="x", padx=5, pady=(0, 20))
         
         # Cadre pour le résumé (sera rempli dynamiquement)
@@ -703,7 +522,7 @@ class Dmd(ctk.CTkFrame):
         
         # Message initial
         ctk.CTkLabel(self.resume_frame, 
-                     text="Veuillez rechercher un personnel pour afficher ses informations et valider la demande.",
+                     text="Veuillez rechercher un personnel pour afficher ses informations",
                      text_color=COLORS['TEXT_GREY'],
                      font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=14, slant="italic")
                      ).pack(pady=20)

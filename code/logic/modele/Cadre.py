@@ -2,10 +2,10 @@
 #classe pere de la classe  Grade
 import uuid
 class Cadre:
-    def __init__(self, classe_corps, chef_grade,echelle):
+    def __init__(self, classe_corps,echelle):
         self.__id_cadre = uuid.uuid4()
         self.__classe_corps = classe_corps
-        self.__chef_grade = chef_grade
+       
         self.__echelle = echelle
     @property
     def id_cadre(self):
@@ -23,13 +23,7 @@ class Cadre:
     def classe_corps(self, value):
         self.__classe_corps = value
         
-    @property
-    def chef_grade(self):
-        return self.__chef_grade
-    
-    @chef_grade.setter
-    def chef_grade(self, value):
-        self.__chef_grade = value
+   
         
 
     @property

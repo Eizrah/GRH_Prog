@@ -1,12 +1,13 @@
 #classe d'association entre Personnel et Emplois
 from uuid import uuid4
 class Affectation:
-    def __init__(self, date_debut, date_fin, personnel, emplois):
+    def __init__(self, date_debut, date_fin, id_emploi, id_fonc=None, id_ag=None):
         self._id_affectation = uuid4()
         self._date_debut = date_debut
         self._date_fin = date_fin
-        self._personnel = personnel
-        self._emplois = emplois
+        self._id_emploi = id_emploi
+        self._id_fonc = id_fonc
+        self._id_ag = id_ag
         
     @property
     def id_affectation(self):
@@ -33,22 +34,31 @@ class Affectation:
         self._date_fin = value
     
     @property
-    def personnel(self):
-        return self._personnel
+    def id_fonc(self):
+        return self._id_fonc
     
-    @personnel.setter
-    def personnel(self, value):
-        self._personnel = value
+    @id_fonc.setter
+    def id_fonc(self, value):
+        self._id_fonc = value
+
+    @property
+    def id_ag(self):
+        return self._id_ag
+    
+    @id_ag.setter
+    def id_ag(self, value):
+        self._id_ag = value
         
     @property
-    def emplois(self):
-        return self._emplois
+    def id_emploi(self):
+        return self._id_emploi
     
-    @emplois.setter
-    def emplois(self, value):
-        self._emplois = value 
+    @id_emploi.setter
+    def id_emploi(self, value):
+        self._id_emploi = value
     
     """ 
-    personnel: cle etrangere vers Personnel
-    emplois: cle etrangere vers Emplois
+    id_fonc: cle etrangere vers Fonctionnaire (peut etre null)
+    id_ag: cle etrangere vers AgentContractuel (peut etre null)
+    id_emploi: cle etrangere vers Emplois
     """

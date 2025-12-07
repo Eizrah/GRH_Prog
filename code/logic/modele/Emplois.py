@@ -26,3 +26,11 @@ class Emplois:
     @duree.setter
     def duree(self, value):
         self._duree = value
+
+    @property
+    def lieu(self):
+        return self._lieu
+    
+    @lieu.setter
+    def lieu(self, value):
+        self._lieu = value

@@ -8,3 +8,4 @@ from screen.Authentification import LoginPage
 if __name__ == "__main__":
  f = Fenetreprincpale()
  f.mainloop()
+

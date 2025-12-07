@@ -4,7 +4,7 @@ status : EFA , ELD, ECD, EMO, ES
 id_cadre : clé etrangere de la classe Crade
 
 """
-import Personnel
+from . import Personnel
 import uuid
 class AgentContractuel(Personnel.Personnel):
     def __init__(self, num_matricule, nom, prenom, date_naissance, lieu_naissance, date_entree, date_sortie, objet_depart, position,statut,id_cadre):
