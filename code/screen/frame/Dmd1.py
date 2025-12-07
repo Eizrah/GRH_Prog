@@ -537,147 +537,45 @@ class Dmd(ctk.CTkFrame):
         date_debut = self.entry_date_debut.get() if hasattr(self, 'entry_date_debut') else ""
         date_fin = self.entry_date_fin.get() if hasattr(self, 'entry_date_fin') else ""
         
-        if not all([matricule, type_conge]):
-            messagebox.showwarning("Attention", "Veuillez remplir les champs obligatoires (Matricule, Type)")
+        if not all([matricule, type_conge, motif]):
+            messagebox.showwarning("Attention", "Veuillez remplir tous les champs obligatoires")
             return
+            
+        # Validation technique via le gestionnaire
+        if not self.request_valid:
+            messagebox.showerror("Erreur", "La demande est invalide (voir section validation).\nVeuillez corriger les dates ou le type de congé.")
+            return
+        
+        # Validation supplémentaire pour le congé annuel/cumulé
+        duree_demandee = self.calculer_duree_conge(date_debut, date_fin)
+        solde_conge = self.calculer_solde_conge(self.get_date_embauche_from_matricule(matricule))
 
-        # Validation technique via le gestionnaire (si dates présentes)
-        if date_debut and date_fin and not self.request_valid:
-             messagebox.showerror("Erreur", "La demande est invalide.\nVeuillez vérifier les dates.")
+        if type_conge in ["Congé annuel", "Congé annuel cumulé"] and duree_demandee > solde_conge and solde_conge > 0:
+             messagebox.showerror("Erreur de Soumission", 
+                                  f"IMPOSSIBLE de soumettre : La durée demandée ({duree_demandee} jours) "
+                                  f"est supérieure au solde de congé disponible ({solde_conge} jours).")
              return
 
-        # Calculer la durée
-        duree_demandee = self.calculer_duree_conge(date_debut, date_fin)
+        # Préparer les données
+        data = {
+            "matricule": matricule,
+            "type_conge": type_conge,
+            "motif": motif,
+            "date_debut": date_debut,
+            "date_fin": date_fin
+        }
         
-        # Imports des modèles
-        from logic.modele.Conge import Conge
-        from logic.modele.Permission import Permission
-        from logic.modele.Autorisation import Autorisation
-        from logic.modele.Perso_Conge import PersoConge
+        # Afficher un message de confirmation
+        messagebox.showinfo("Demande soumise", 
+                          f"Demande de congé soumise avec succès!\n\n"
+                          f"Matricule: {matricule}\n"
+                          f"Type: {type_conge}\n"
+                          f"Durée demandée: {duree_demandee} jours\n"
+                          f"Motif: {motif[:50]}...")
         
-        try:
-             # Connexion DB
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            project_root = os.path.dirname(parent_dir)
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-
-            # Imports des modèles pour accès aux méthodes/props si besoin
-            # Note: nous utilisons directement SQL mais les classes aident à structurer
-            import uuid
-
-            # 1. Identifier le personnel (Fonctionnaire ou Agent)
-            id_personne_trouve = None
-            is_fonctionnaire = False
-            
-            # Variables pour PersoConge (toutes initialisées à un nouveau UUID par défaut)
-            id_fonc_val = str(uuid.uuid4())
-            id_ag_val = str(uuid.uuid4())
-            
-            
-            # Essai Fonctionnaire
-            cursor.execute("SELECT id_fonc FROM Fonctionnaire WHERE num_matricule = ?", (matricule,))
-            res = cursor.fetchone()
-            if res:
-                id_personne_trouve = res[0]
-                is_fonctionnaire = True
-                id_fonc_val = id_personne_trouve # On remplace le UUID par le vrai ID
-            else:
-                # Essai Agent Contractuel
-                cursor.execute("SELECT id_ag FROM AgentContractuel WHERE num_matricule = ?", (matricule,))
-                res = cursor.fetchone()
-                if res:
-                    id_personne_trouve = res[0]
-                    is_fonctionnaire = False
-                    id_ag_val = id_personne_trouve # On remplace le UUID par le vrai ID
-            
-            if not id_personne_trouve:
-                messagebox.showerror("Erreur", "Personnel introuvable.")
-                conn.close()
-                return
-
-            # 2. Insérer l'objet demande (Conge/Permission/Autorisation)
-            # Variables pour PersoConge (toutes initialisées à UUID par défaut)
-            id_conge_val = str(uuid.uuid4())
-            id_permission_val = str(uuid.uuid4())
-            id_aut_val = str(uuid.uuid4())
-            
-            validation_status = "En Attente"
-            
-            if "Permission" in type_conge:
-                # --- PERMISSION ---
-                perm = Permission(motif, duree_demandee, validation_status)
-                real_id = str(perm.id_permission)
-                id_permission_val = real_id # Vrai ID
-                
-                cursor.execute('''
-                    INSERT INTO Permission (id_permission, motif, duree, validation)
-                    VALUES (?, ?, ?, ?)
-                ''', (real_id, perm.motif, perm.duree, perm.validation))
-                
-            elif "Autorisation" in type_conge:
-                # --- AUTORISATION ---
-                aut = Autorisation(type_conge, duree_demandee, validation_status)
-                real_id = str(aut._id_aut) # ou aut.id_aut si dispo
-                id_aut_val = real_id # Vrai ID
-                
-                cursor.execute('''
-                    INSERT INTO Autorisation (id_aut, type, duree, validation)
-                    VALUES (?, ?, ?, ?)
-                ''', (real_id, aut.type, aut.duree, aut.validation))
-                
-            else:
-                # --- CONGE ---
-                cng = Conge(type_conge, duree_demandee, validation_status)
-                real_id = str(cng.id_conge)
-                id_conge_val = real_id # Vrai ID
-                
-                cursor.execute('''
-                    INSERT INTO Conge (id_conge, type, duree, validation)
-                    VALUES (?, ?, ?, ?)
-                ''', (real_id, cng.type_conge, cng.duree, cng.validation))
-
-            # 3. Insérer dans PersoConge (Nouvelle Structure)
-            # Structure: id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag
-            
-            id_pc = str(uuid.uuid4())
-            
-            # Note: Perso_Conge modèle est maintenant "out of sync" avec la DB, 
-            # on fait l'insertion directe sans passer par la classe PersoConge pour ce cas spécifique
-            # pour respecter scrupuleusement le schéma demandé.
-            
-            cursor.execute('''
-                INSERT INTO PersoConge (id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (id_pc, date_debut, date_fin, id_conge_val, id_permission_val, id_aut_val, id_fonc_val, id_ag_val))
-            
-            conn.commit()
-            conn.close()
-            
-            messagebox.showinfo("Succès", "La demande a été enregistrée avec succès.")
-            
-            # Reset form partial
-            self.entry_matricule.delete(0, 'end')
-            self.entry_motif.delete("1.0", "end")
-            # Keep dates or reset? Reset implies cleaner state
-            if hasattr(self, 'entry_date_debut'): self.entry_date_debut.delete(0, 'end')
-            if hasattr(self, 'entry_date_fin'): self.entry_date_fin.delete(0, 'end')
-            
-        except sqlite3.Error as e:
-            messagebox.showerror("Erreur Base de Données", f"Une erreur est survenue: {e}")
-            if conn: conn.rollback(); conn.close()
-        except Exception as e:
-            messagebox.showerror("Erreur", f"Une erreur inattendue: {e}")
-            if 'conn' in locals() and conn: conn.close()
-            print(e)
-
-        # Si un contrôleur est défini, lui passer les données (optionnel, pour MàJ immédiate si besoin)
+        # Si un contrôleur est défini, lui passer les données
         if self.controller and hasattr(self.controller, 'ajouter_demande'):
-             # data = ...
-             pass
+            self.controller.ajouter_demande(data)
             
     def get_date_embauche_from_matricule(self, matricule):
         """Récupère la date d'embauche sans refaire toute la recherche"""

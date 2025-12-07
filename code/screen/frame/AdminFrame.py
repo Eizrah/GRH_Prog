@@ -8,6 +8,10 @@ class AdminFrame(customtkinter.CTkFrame):
         # Stocker le contrôleur pour y accéder plus tard
         self.controller = controller
         
+        # Dictionnaire pour stocker les boutons/données par item_id
+        # DOIT être initialisé avant create_table car utilisé dans refresh_table
+        self.action_buttons = {}
+        
         # Titre de la section
         self.title_label = customtkinter.CTkLabel(
             self, 
@@ -17,13 +21,8 @@ class AdminFrame(customtkinter.CTkFrame):
         self.title_label.pack(pady=20)
         
         # Création du tableau (Treeview)
+        # Ceci appelle maintenant refresh_table, donc tout doit être prêt
         self.create_table()
-        
-        # Dictionnaire pour stocker les boutons par item_id
-        self.action_buttons = {}
-        
-        # Ajout de données d'exemple (à remplacer par vos données réelles)
-        self.add_sample_data()
     
     def create_table(self):
         # Cadre pour le tableau avec défilement
@@ -48,9 +47,10 @@ class AdminFrame(customtkinter.CTkFrame):
         style.map("Treeview.Heading", background=[('active', '#3484F0')])
         
         # Création du Treeview
+        # Création du Treeview
         columns = (
-            "matricule", "nom_prenom", "date_entree", "statut", 
-            "corps", "grade", "solde_conge", "actions"
+            "matricule", "nom_prenom", "type_demande", "dates", 
+            "duree", "validation", "actions"
         )
         
         self.tree = ttk.Treeview(
@@ -65,12 +65,11 @@ class AdminFrame(customtkinter.CTkFrame):
         headers = [
             ("Matricule", 100),
             ("Nom & Prénom", 150),
-            ("Date d'entrée", 120),
-            ("Statut", 120),
-            ("Corps", 120),
-            ("Grade", 120),
-            ("Solde Congé", 100),
-            ("Actions", 250)  # Augmenté pour les boutons
+            ("Type Demande", 150),
+            ("Dates", 180),
+            ("Durée", 80),
+            ("Validation", 100),
+            ("Actions", 150)
         ]
         
         for i, (header, width) in enumerate(headers):
@@ -99,6 +98,9 @@ class AdminFrame(customtkinter.CTkFrame):
         
         # Lier l'événement de sélection pour mettre à jour l'affichage des boutons
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
+        
+        # Initialiser avec les données réelles
+        self.refresh_table()
     
     def create_action_buttons(self):
         """Crée les boutons d'action globaux"""
@@ -113,42 +115,134 @@ class AdminFrame(customtkinter.CTkFrame):
             height=35
         ).pack(side="left", padx=5)
         
-        customtkinter.CTkButton(
-            button_frame,
-            text="Exporter",
-            command=self.export_data,
-            width=120,
-            height=35
-        ).pack(side="left", padx=5)
+        # Export removed for now as not main focus
     
-    def add_row(self, matricule, nom_prenom, date_entree, statut, corps, grade, solde_conge):
+    def add_row(self, item_id, matricule, nom_prenom, type_demande, dates, duree, validation):
         """Ajoute une ligne au tableau"""
-        # Insertion de la ligne avec les données
-        item_id = self.tree.insert(
+        # Couleur selon validation
+        tag = ""
+        if validation == "Accepté": tag = "accepted"
+        elif validation == "Refusé": tag = "rejected"
+        else: tag = "pending"
+
+        # Insertion de la ligne
+        self.tree.insert(
             "", 
             "end", 
+            iid=item_id, # Utiliser l'ID de la DB comme iid du treeview
             values=(
                 matricule, 
                 nom_prenom, 
-                date_entree, 
-                statut, 
-                corps, 
-                grade, 
-                solde_conge,
-                "Accepter | Refuser | Détails"  # Texte descriptif
-            )
+                type_demande, 
+                dates, 
+                duree, 
+                validation,
+                "Gérer" 
+            ),
+            tags=(tag,)
         )
         
-        # Stocker les données de la ligne pour référence
-        self.action_buttons[item_id] = {
-            'matricule': matricule,
-            'nom_prenom': nom_prenom,
-            'date_entree': date_entree,
-            'statut': statut,
-            'corps': corps,
-            'grade': grade,
-            'solde_conge': solde_conge
-        }
+    def refresh_table(self):
+        """Actualise le tableau avec les données de la base"""
+        import sqlite3
+        import os
+        
+        # Vider le tableau
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self.action_buttons.clear() # Sert maintenant de cache de données
+        
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            project_root = os.path.dirname(parent_dir)
+            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Requête pour récupérer les liens PersoConge avec la nouvelle structure
+            # id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag
+            cursor.execute("SELECT id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag FROM PersoConge")
+            perso_conges = cursor.fetchall()
+            
+            for pc in perso_conges:
+                id_pc, date_debut, date_fin, id_c, id_p, id_a, id_f, id_ag = pc
+                
+                # 1. Identifier le Personnel
+                # Puisque les champs inutilisés ont des UUIDs, il faut vérifier lequel existe vraiment
+                nom_prenom = "Inconnu"
+                matricule = "?"
+                
+                # Test Fonctionnaire
+                cursor.execute("SELECT num_matricule, nom, prenom FROM Fonctionnaire WHERE id_fonc = ?", (id_f,))
+                res_f = cursor.fetchone()
+                
+                if res_f:
+                    matricule, nom, prenom = res_f
+                    nom_prenom = f"{nom} {prenom}"
+                else:
+                    # Test Agent
+                    cursor.execute("SELECT num_matricule, nom, prenom FROM AgentContractuel WHERE id_ag = ?", (id_ag,))
+                    res_ag = cursor.fetchone()
+                    if res_ag:
+                        matricule, nom, prenom = res_ag
+                        nom_prenom = f"{nom} {prenom}"
+                
+                # 2. Identifier la Demande (Conge, Permission, Autorisation)
+                type_demande = "?"
+                duree = "?"
+                validation = "?"
+                id_conge_obj = None # ID à utiliser pour les updates
+                
+                # Test Conge
+                cursor.execute("SELECT type, duree, validation FROM Conge WHERE id_conge = ?", (id_c,))
+                res_c = cursor.fetchone()
+                
+                if res_c:
+                    type_demande, duree, validation = res_c
+                    id_conge_obj = id_c
+                else:
+                    # Test Permission
+                    cursor.execute("SELECT motif, duree, validation FROM Permission WHERE id_permission = ?", (id_p,))
+                    res_p = cursor.fetchone()
+                    if res_p:
+                        motif, duree, validation = res_p
+                        type_demande = f"Permission: {motif[:15]}..."
+                        id_conge_obj = id_p
+                    else:
+                        # Test Autorisation
+                        cursor.execute("SELECT type, duree, validation FROM Autorisation WHERE id_aut = ?", (id_a,))
+                        res_a = cursor.fetchone()
+                        if res_a:
+                             type_demande, duree, validation = res_a
+                             type_demande = f"Auth: {type_demande}"
+                             id_conge_obj = id_a
+
+                # Si on a trouvé une demande valide
+                if id_conge_obj:
+                    # Stocker les données complètes pour les actions
+                    self.action_buttons[id_pc] = {
+                        'matricule': matricule,
+                        'nom_prenom': nom_prenom,
+                        'type_demande': type_demande,
+                        'dates': f"{date_debut} - {date_fin}",
+                        'duree': duree,
+                        'validation': validation,
+                        'id_conge_obj': id_conge_obj # ID réel de l'objet demande pour update
+                    }
+                    
+                    self.add_row(id_pc, matricule, nom_prenom, type_demande, f"{date_debut} - {date_fin}", duree, validation)
+                
+            conn.close()
+            
+            # Configurer les tags de couleur
+            self.tree.tag_configure("accepted", background="#d1fae5", foreground="black") # Light green
+            self.tree.tag_configure("rejected", background="#fee2e2", foreground="black") # Light red
+            self.tree.tag_configure("pending", background="#2a2d2e", foreground="white") # Default dark
+            
+        except Exception as e:
+            print(f"Erreur refresh admin: {e}")
     
     def on_tree_select(self, event):
         """Gère la sélection d'une ligne dans le tableau"""
@@ -168,13 +262,13 @@ class AdminFrame(customtkinter.CTkFrame):
         # Création d'une fenêtre modale pour les actions
         action_window = customtkinter.CTkToplevel(self)
         action_window.title(f"Actions pour {data['nom_prenom']}")
-        action_window.geometry("400x250")
+        action_window.geometry("400x300")
         action_window.grab_set()  # Rend la fenêtre modale
         
         # Titre
         title_label = customtkinter.CTkLabel(
             action_window,
-            text=f"Actions pour: {data['nom_prenom']}",
+            text=f"Demande de: {data['nom_prenom']}",
             font=customtkinter.CTkFont(size=16, weight="bold")
         )
         title_label.pack(pady=10)
@@ -182,8 +276,10 @@ class AdminFrame(customtkinter.CTkFrame):
         # Informations de base
         info_text = f"""
         Matricule: {data['matricule']}
-        Grade: {data['grade']}
-        Solde Congé: {data['solde_conge']} jours
+        Type: {data['type_demande']}
+        Dates: {data['dates']}
+        Durée: {data['duree']} jours
+        Etat actuel: {data['validation']}
         """
         
         info_label = customtkinter.CTkLabel(
@@ -246,20 +342,42 @@ class AdminFrame(customtkinter.CTkFrame):
         """Gère l'acceptation d'une demande"""
         if item_id in self.action_buttons:
             data = self.action_buttons[item_id]
-            matricule = data['matricule']
-            print(f"Demande acceptée pour le matricule: {matricule}")
+            id_conge_obj = data.get('id_conge_obj')
             
-            # Si un contrôleur est disponible, on peut l'utiliser
-            if self.controller:
-                print(f"Contrôleur disponible pour AdminFrame - Acceptation")
-            
-            # Mettre à jour l'affichage dans le tableau
-            self.tree.item(item_id, tags=("accepted",))
-            self.tree.tag_configure("accepted", background="lightgreen")
-            
-            # Afficher un message de confirmation
-            self.show_message("Demande acceptée", f"La demande de {data['nom_prenom']} a été acceptée.")
-        
+            # Update Database
+            import sqlite3
+            import os
+            try:
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                parent_dir = os.path.dirname(current_dir)
+                project_root = os.path.dirname(parent_dir)
+                db_path = os.path.join(project_root, 'database', 'db.sqlite3')
+                
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # Check tables
+                cursor.execute("UPDATE Conge SET validation = 'Accepté' WHERE id_conge = ?", (id_conge_obj,))
+                if cursor.rowcount == 0:
+                    cursor.execute("UPDATE Permission SET validation = 'Accepté' WHERE id_permission = ?", (id_conge_obj,))
+                    if cursor.rowcount == 0:
+                         cursor.execute("UPDATE Autorisation SET validation = 'Accepté' WHERE id_aut = ?", (id_conge_obj,))
+                
+                conn.commit()
+                conn.close()
+                
+                # Mettre à jour l'affichage dans le tableau
+                self.tree.item(item_id, tags=("accepted",))
+                self.tree.set(item_id, "validation", "Accepté")
+                
+                # Update local cache
+                self.action_buttons[item_id]['validation'] = 'Accepté'
+                
+                self.show_message("Validation", "La demande a été acceptée.")
+                
+            except Exception as e:
+                print(f"Erreur update DB: {e}")
+                
         if parent_window:
             parent_window.destroy()
     
@@ -267,19 +385,40 @@ class AdminFrame(customtkinter.CTkFrame):
         """Gère le refus d'une demande"""
         if item_id in self.action_buttons:
             data = self.action_buttons[item_id]
-            matricule = data['matricule']
-            print(f"Demande refusée pour le matricule: {matricule}")
-            
-            # Si un contrôleur est disponible, on peut l'utiliser
-            if self.controller:
-                print(f"Contrôleur disponible pour AdminFrame - Refus")
-            
-            # Mettre à jour l'affichage dans le tableau
-            self.tree.item(item_id, tags=("rejected",))
-            self.tree.tag_configure("rejected", background="lightcoral")
-            
-            # Afficher un message de confirmation
-            self.show_message("Demande refusée", f"La demande de {data['nom_prenom']} a été refusée.")
+            id_conge_obj = data.get('id_conge_obj')
+
+            # Update Database
+            import sqlite3
+            import os
+            try:
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                parent_dir = os.path.dirname(current_dir)
+                project_root = os.path.dirname(parent_dir)
+                db_path = os.path.join(project_root, 'database', 'db.sqlite3')
+                
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # Check tables
+                cursor.execute("UPDATE Conge SET validation = 'Refusé' WHERE id_conge = ?", (id_conge_obj,))
+                if cursor.rowcount == 0:
+                    cursor.execute("UPDATE Permission SET validation = 'Refusé' WHERE id_permission = ?", (id_conge_obj,))
+                    if cursor.rowcount == 0:
+                         cursor.execute("UPDATE Autorisation SET validation = 'Refusé' WHERE id_aut = ?", (id_conge_obj,))
+                
+                conn.commit()
+                conn.close()
+                
+                # Mettre à jour l'affichage
+                self.tree.item(item_id, tags=("rejected",))
+                self.tree.set(item_id, "validation", "Refusé")
+                 # Update local cache
+                self.action_buttons[item_id]['validation'] = 'Refusé'
+                
+                self.show_message("Validation", "La demande a été refusée.")
+                
+            except Exception as e:
+                print(f"Erreur update DB: {e}")
         
         if parent_window:
             parent_window.destroy()
@@ -301,16 +440,12 @@ class AdminFrame(customtkinter.CTkFrame):
             
             Matricule: {data['matricule']}
             Nom & Prénom: {data['nom_prenom']}
-            Date d'entrée: {data['date_entree']}
-            Statut: {data['statut']}
-            Corps: {data['corps']}
-            Grade: {data['grade']}
-            Solde de Congé: {data['solde_conge']} jours
             
-            Historique des demandes:
-            - En attente: 1 demande
-            - Acceptées: 3 demandes
-            - Refusées: 0 demande
+            --- Demande ---
+            Type: {data['type_demande']}
+            Période: {data['dates']}
+            Durée: {data['duree']} jours
+            Statut: {data['validation']}
             """
             
             detail_label = customtkinter.CTkLabel(

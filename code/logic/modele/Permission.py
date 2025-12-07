@@ -1,7 +1,7 @@
 #classe eenfant de Pause
-import Pause
+from .Pause import Pause
 import uuid
-class Permission(Pause.Pause):
+class Permission(Pause):
     def __init__(self, motif, duree, validation, ):
         super().__init__(duree, validation)
         self._id_permission = uuid.uuid4()

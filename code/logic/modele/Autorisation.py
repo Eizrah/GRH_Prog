@@ -1,7 +1,7 @@
 #classe enfant de Pause
-import Pause
+from .Pause import Pause
 import uuid
-class Autorisation(Pause.Pause):
+class Autorisation(Pause):
     def __init__(self ,type,duree, validation, ):
         super().__init__(duree, validation)
         self._id_aut =uuid.uuid4()

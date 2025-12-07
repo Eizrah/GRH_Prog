@@ -1,7 +1,7 @@
 #classe enfant de Pause
-import Pause
+from .Pause import Pause
 import uuid
-class Conge(Pause.Pause):
+class Conge(Pause):
     def __init__(self,  type_conge,duree, validation):
         super().__init__(duree, validation)
         self._id_conge = uuid.uuid4()
