@@ -684,7 +684,7 @@ class Dmd(ctk.CTkFrame):
                 cursor.execute('''
                     INSERT INTO Permission (id_permission, motif, duree, validation)
                     VALUES (?, ?, ?, ?)
-                ''', (real_id, perm.motif, perm.duree, perm.validation))
+                ''', (real_id, motif, perm.duree, perm.validation))
                 
             elif "Autorisation" in type_conge:
                 # --- AUTORISATION ---
@@ -693,9 +693,9 @@ class Dmd(ctk.CTkFrame):
                 id_aut_val = real_id
                 
                 cursor.execute('''
-                    INSERT INTO Autorisation (id_aut, type, duree, validation)
-                    VALUES (?, ?, ?, ?)
-                ''', (real_id, aut.type, aut.duree, aut.validation))
+                    INSERT INTO Autorisation (id_aut, type, duree, validation, motif)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (real_id, aut.type, aut.duree, aut.validation, motif))
                 
             else:
                 # --- CONGE ---

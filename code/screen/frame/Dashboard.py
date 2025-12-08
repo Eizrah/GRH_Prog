@@ -269,12 +269,16 @@ class TableauDashboard(ctk.CTkFrame):
             action_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
             action_frame.grid(row=row, column=7, sticky="w", padx=5)
             
-            # Bouton Modifier
-            ctk.CTkButton(action_frame, text="✏️", width=30, fg_color=COLORS['PRIMARY_BLUE'],
+            # Bouton Modifier avec icône plus visible
+            ctk.CTkButton(action_frame, text="✎ EDIT", width=50, fg_color=COLORS['PRIMARY_BLUE'],
+                          hover_color="#3670B3",
+                          font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=10, weight="bold"),
                           command=lambda m=record["matricule"]: self.edit_personnel(m)).pack(side="left", padx=2)
             
-            # Bouton Supprimer
-            ctk.CTkButton(action_frame, text="🗑️", width=30, fg_color=COLORS['ACCENT_RED'],
+            # Bouton Supprimer avec icône plus visible
+            ctk.CTkButton(action_frame, text="✖ DEL", width=50, fg_color=COLORS['ACCENT_RED'],
+                          hover_color="#DC2626",
+                          font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=10, weight="bold"),
                           command=lambda m=record["matricule"]: self.delete_personnel(m)).pack(side="left", padx=2)
 
     def edit_personnel(self, matricule):

@@ -155,16 +155,16 @@ class AdminFrame(customtkinter.CTkFrame):
                     cursor.execute("SELECT motif, duree, validation FROM Permission WHERE id_permission = ?", (id_p,))
                     res_p = cursor.fetchone()
                     if res_p:
-                        req_type = "Permission"
-                        req_detail = res_p[0]
+                        req_type = "Permission d'absence"
+                        req_detail = res_p[0]  # Le motif
                         validation = res_p[2]
                     else:
                         # Autorisation
-                        cursor.execute("SELECT type, duree, validation FROM Autorisation WHERE id_aut = ?", (id_a,))
+                        cursor.execute("SELECT type, duree, validation, motif FROM Autorisation WHERE id_aut = ?", (id_a,))
                         res_a = cursor.fetchone()
                         if res_a:
-                            req_type = "Autorisation"
-                            req_detail = res_a[0]
+                            req_type = res_a[0]  # Type exact de l'autorisation
+                            req_detail = res_a[3] if res_a[3] else "-"  # Le motif
                             validation = res_a[2]
 
                 # --- 3. Récupérer Détails Avancés (Poste, Grade, Solde) ---

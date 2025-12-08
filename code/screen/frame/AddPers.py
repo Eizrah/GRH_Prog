@@ -553,8 +553,9 @@ class AjoutPersonnelView(ctk.CTkFrame):
                 duree=personnel_data["duree_emploi"],
                 lieu=personnel_data["lieu_travail"]
             )
-            #Enregistrement dans la base de donéé
-            cursor.execute('INSERT INTO Emplois (nom_poste, dure, lieu) VALUES (?, ?, ?)', (emplois_obj.nom_poste, emplois_obj.duree, emplois_obj.lieu))
+            #Enregistrement dans la base de données avec l'id_emploi
+            cursor.execute('INSERT INTO Emplois (id_emploi, nom_poste, dure, lieu) VALUES (?, ?, ?, ?)', 
+                          (str(emplois_obj.id_emploi), emplois_obj.nom_poste, emplois_obj.duree, emplois_obj.lieu))
             conn.commit()
         except Exception as e:
             messagebox.showerror("Erreur Création Emploi", f"Impossible de créer l'objet Emplois: {e}")

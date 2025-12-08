@@ -3,8 +3,9 @@ import customtkinter as ctk
 from .frame.NavBar import NavBar 
 from .frame.Dashboard import DashboardView
 from .frame.AddPers import AjoutPersonnelView
-from .frame.Dmd import Dmd  # Ajout de cette importation
+from .frame.Dmd import Dmd
 from .frame.AdminFrame import AdminFrame
+from .frame.MyAccount import MyAccount
 # COULEURS (Subset)
 COLORS = {
     "BG_LIGHT_GREY": "#F0F2F5",
@@ -44,8 +45,8 @@ class Fenetreprincpale(ctk.CTk):
         self.container.grid_columnconfigure(0, weight=1)
 
         # --- 3. CRÉATION ET ENREGISTREMENT DES VUES ---
-        # Liste des classes de vues à instancier (AJOUT DE Dmd)
-        views = [DashboardView, AjoutPersonnelView, Dmd,AdminFrame]
+        # Liste des classes de vues à instancier
+        views = [DashboardView, AjoutPersonnelView, Dmd, AdminFrame, MyAccount]
         
         for F in views:
             # Le nom de la vue est le nom de la classe
@@ -77,7 +78,11 @@ class Fenetreprincpale(ctk.CTk):
         
         # CORRECTION ICI : AdminFrame au lieu de DeconnexionBtn
         if hasattr(self.nav_bar, 'ValidationAdmin'):
-            self.nav_bar.ValidationAdmin.configure(command=lambda: self.show_frame("AdminFrame"))  # Correction
+            self.nav_bar.ValidationAdmin.configure(command=lambda: self.show_frame("AdminFrame"))
+        
+        # Bouton Mon Compte
+        if hasattr(self.nav_bar, 'MonCompteBtn'):
+            self.nav_bar.MonCompteBtn.configure(command=lambda: self.show_frame("MyAccount"))
         
         # Bouton de déconnexion
         if hasattr(self.nav_bar, 'DeconnexionBtn'):
@@ -108,10 +113,12 @@ class Fenetreprincpale(ctk.CTk):
                     self.nav_bar.set_active_button('dashboard')
                 elif page_name == "AjoutPersonnelView":
                     self.nav_bar.set_active_button('addPers')
-                elif page_name == "Dmd":  # Ajout pour Dmd
+                elif page_name == "Dmd":
                     self.nav_bar.set_active_button('DemandeBtn')
-                elif page_name == "AdminFrame":  # Correction ici
-                    self.nav_bar.set_active_button('ValidationAdmin')  # Utilisez le bon nom de bouton
+                elif page_name == "AdminFrame":
+                    self.nav_bar.set_active_button('ValidationAdmin')
+                elif page_name == "MyAccount":
+                    self.nav_bar.set_active_button('MonCompteBtn')
                 # Ajoutez d'autres correspondances au besoin
         else:
             print(f"Erreur: La vue '{page_name}' n'existe pas.")
