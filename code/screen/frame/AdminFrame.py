@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import sqlite3
 import os
 from datetime import datetime
+from logic.gestion_solde import obtenir_solde_reel
 
 class AdminFrame(customtkinter.CTkFrame):
     def __init__(self, master, controller=None, **kwargs):
@@ -83,6 +84,10 @@ class AdminFrame(customtkinter.CTkFrame):
             from logic.conge_cumule import calculer_conge_cumule
         except ImportError:
             # Fallback si le path n'est pas encore bon (ex: run direct)
+            import sys
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            project_root = os.path.dirname(parent_dir)
             sys.path.append(os.path.join(project_root, 'code'))
             from logic.conge_cumule import calculer_conge_cumule
 
@@ -166,22 +171,24 @@ class AdminFrame(customtkinter.CTkFrame):
                 
                 # Calcul Solde
                 solde = "N/A"
-                if date_entree_str and d_dep_str:
+                if date_entree_str: # On a besoin de la date d'entrée et de l'ID
                     try:
-                        # Helper pour parser les dates (Format ISO ou FR)
-                        def parse_date_flexible(d_str):
-                            for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
-                                try:
-                                    return datetime.strptime(d_str, fmt).date()
-                                except ValueError:
-                                    pass
-                            raise ValueError(f"Format de date inconnu: {d_str}")
-
-                        d_entree = parse_date_flexible(date_entree_str)
-                        d_demande = parse_date_flexible(d_dep_str)
+                        # Parsing de la date d'entrée
+                        d_entree = None
+                        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+                            try:
+                                d_entree = datetime.strptime(date_entree_str, fmt).date()
+                                break
+                            except ValueError: pass
                         
-                        val_solde = calculer_conge_cumule(d_entree, d_demande, silent=True)
-                        solde = f"{val_solde} jours"
+                        if d_entree:
+                            # Appel de la fonction qui fait (Acquis - Consommé)
+                            # person_id a été défini plus haut dans votre code (id_f ou id_ag)
+                            # person_type a été défini plus haut ("fonc" ou "agent")
+                            val_solde = obtenir_solde_reel(person_id, person_type, d_entree)
+                            
+                            solde = f"{val_solde} jours"
+                            
                     except Exception as e:
                         print(f"Erreur calcul solde: {e}")
                 
@@ -321,9 +328,10 @@ class AdminFrame(customtkinter.CTkFrame):
         ctk.CTkButton(btn_frame, text="Fermer", fg_color="gray", command=dialog.destroy).pack(side="left", padx=10)
 
     def process_action(self, item_id, decision, window):
-        """Met à jour la validation dans la DB"""
+        """Met à jour la validation dans la DB et ajuste le solde"""
         data = self.requests_data[item_id]
         import sqlite3
+        
         try:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             parent_dir = os.path.dirname(current_dir)
@@ -333,20 +341,27 @@ class AdminFrame(customtkinter.CTkFrame):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             
+            # 1. Mettre à jour la validation
             target_id = data['id_conge']
-            
             updated = False
+            
             # On essaye Conge
             cursor.execute("UPDATE Conge SET validation = ? WHERE id_conge = ?", (decision, target_id))
-            if cursor.rowcount > 0: updated = True
+            if cursor.rowcount > 0: 
+                updated = True
             
             if not updated:
                 cursor.execute("UPDATE Permission SET validation = ? WHERE id_permission = ?", (decision, target_id))
-                if cursor.rowcount > 0: updated = True
+                if cursor.rowcount > 0: 
+                    updated = True
                 
             if not updated:
                 cursor.execute("UPDATE Autorisation SET validation = ? WHERE id_aut = ?", (decision, target_id))
-                if cursor.rowcount > 0: updated = True
+                if cursor.rowcount > 0: 
+                    updated = True
+            
+            # 2. Le solde sera automatiquement mis à jour car il est calculé en temps réel
+            # à partir de la fonction obtenir_solde_reel() qui soustrait les congés acceptés
             
             conn.commit()
             conn.close()
@@ -359,6 +374,8 @@ class AdminFrame(customtkinter.CTkFrame):
                 
         except Exception as e:
             print(f"Erreur update: {e}")
+            if 'conn' in locals() and conn:
+                conn.close()
 
 if __name__ == "__main__":
     app = customtkinter.CTk()

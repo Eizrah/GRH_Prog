@@ -16,6 +16,7 @@ sys.path.append(project_root)
 from logic.conge_cumule import calculer_conge_cumule
 from logic.GestionAbsences import GestionAbsences
 
+
 # --- COULEURS ET POLICES ---
 COLORS = {
     "PRIMARY_BLUE": "#4A90E2",
@@ -150,36 +151,40 @@ class Dmd(ctk.CTkFrame):
     
     def calculer_solde_conge(self, date_entree_str):
         """
-        Calcule le solde de congé cumulé basé sur la date d'entrée
+        Calcule le solde de congé RÉEL (Acquis - Pris)
         """
         try:
-            # Date de demande = Date de début du congé (si remplie) ou aujourd'hui par défaut
-            date_demande = date.today()
-            if hasattr(self, 'entry_date_debut'):
-                val_date_debut = self.entry_date_debut.get()
-                if val_date_debut.strip():
-                     for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d']:
-                        try:
-                            date_demande = datetime.strptime(val_date_debut, fmt).date()
-                            break
-                        except ValueError:
-                            continue
+            # On a besoin de l'ID de la personne pour chercher ses congés validés.
+            # Dans votre code actuel, vous récupérez les infos, mais pas forcément l'ID (UUID).
+            # Assurez-vous d'avoir stocké l'ID dans self.current_personnel_data['id'] lors de la recherche
             
-            # Parser la date d'entrée
+            # Note : Pour faire simple ici, réutilisons la logique d'import
+            from logic.gestion_solde import obtenir_solde_reel
+            
+            date_entree = None
             if date_entree_str and date_entree_str != "-":
                 for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
                     try:
                         date_entree = datetime.strptime(date_entree_str, fmt).date()
-                        # Calculer le congé cumulé en utilisant la fonction importée
-                        solde = calculer_conge_cumule(date_entree, date_demande, jours_par_an=15, silent=True)
-                        return solde
-                    except ValueError:
-                        continue
+                        break
+                    except ValueError: continue
             
+            if date_entree and self.current_personnel_data:
+                # Récupération des infos nécessaires stockées lors du 'rechercher_personnel'
+                # Il faudra ajouter 'id_personne' et 'type_code' ("fonc"/"agent") dans self.current_personnel_data
+                
+                # NOTE : Vous devez modifier 'rechercher_personnel' pour sauvegarder l'ID (id_fonc ou id_ag)
+                p_id = self.current_personnel_data.get('id_interne') 
+                p_type = "fonc" if self.current_personnel_data.get('type') == "Fonctionnaire" else "agent"
+                
+                if p_id:
+                    return obtenir_solde_reel(p_id, p_type, date_entree)
+            
+            # Fallback (comportement actuel si on n'a pas l'ID)
             return 0
             
         except Exception as e:
-            print(f"Erreur lors du calcul du solde de congé: {e}")
+            print(f"Erreur solde: {e}")
             return 0
 
     def update_validation(self, event=None):
@@ -299,7 +304,7 @@ class Dmd(ctk.CTkFrame):
             
             # Chercher d'abord dans la table Fonctionnaire
             cursor.execute('''
-                SELECT f.num_matricule, f.nom, f.prenom, f.position, f.diplome,
+                SELECT f.id_fonc, f.num_matricule, f.nom, f.prenom, f.position, f.diplome,
                        g.classe, c.echelle, c.classe_corp, f.date_entre
                 FROM Fonctionnaire f
                 LEFT JOIN Change_grade cg ON f.id_fonc = cg.id_fonc
@@ -311,20 +316,39 @@ class Dmd(ctk.CTkFrame):
             result_fonc = cursor.fetchone()
             
             if result_fonc:
-                date_embauche = result_fonc[8] if result_fonc[8] else "-"
-                solde_conge = self.calculer_solde_conge(date_embauche)
+                id_fonc = result_fonc[0]
+                date_embauche = result_fonc[9] if result_fonc[9] else "-"
+                
+                # Calculer le solde avec le bon ID et type
+                solde_conge = 0
+                if date_embauche != "-":
+                    try:
+                        from logic.gestion_solde import obtenir_solde_reel
+                        date_entree = None
+                        for fmt in ['%Y-%m-%d', '%d/%m/%Y']:
+                            try:
+                                date_entree = datetime.strptime(date_embauche, fmt).date()
+                                break
+                            except ValueError: continue
+                        
+                        if date_entree:
+                            solde_conge = obtenir_solde_reel(id_fonc, "fonc", date_entree)
+                    except Exception as e:
+                        print(f"Erreur calcul solde: {e}")
+                        solde_conge = 0
                 
                 # Personnel trouvé dans la table Fonctionnaire
                 data = {
-                    "matricule": result_fonc[0] if result_fonc[0] else "-",
-                    "nom": result_fonc[1] if result_fonc[1] else "-",
-                    "prenom": result_fonc[2] if result_fonc[2] else "-",
+                    "id_interne": id_fonc,  # ID nécessaire pour calcul solde
+                    "matricule": result_fonc[1] if result_fonc[1] else "-",
+                    "nom": result_fonc[2] if result_fonc[2] else "-",
+                    "prenom": result_fonc[3] if result_fonc[3] else "-",
                     "type": "Fonctionnaire",
-                    "position": result_fonc[3] if result_fonc[3] else "-",
-                    "diplome": result_fonc[4] if result_fonc[4] else "-",
-                    "classe": result_fonc[5] if result_fonc[5] else "-",
-                    "echelle": result_fonc[6] if result_fonc[6] else "-",
-                    "corps": result_fonc[7] if result_fonc[7] else "-",
+                    "position": result_fonc[4] if result_fonc[4] else "-",
+                    "diplome": result_fonc[5] if result_fonc[5] else "-",
+                    "classe": result_fonc[6] if result_fonc[6] else "-",
+                    "echelle": result_fonc[7] if result_fonc[7] else "-",
+                    "corps": result_fonc[8] if result_fonc[8] else "-",
                     "date_embauche": date_embauche,
                     "solde_conge": solde_conge
                 }
@@ -348,7 +372,7 @@ class Dmd(ctk.CTkFrame):
             
             # Chercher dans la table AgentContractuel si non trouvé dans Fonctionnaire
             cursor.execute('''
-                SELECT a.num_matricule, a.nom, a.prenom, a.position, a.satut,
+                SELECT a.id_ag, a.num_matricule, a.nom, a.prenom, a.position, a.satut,
                        g.classe, c.echelle, c.classe_corp, a.date_entre
                 FROM AgentContractuel a
                 LEFT JOIN Change_grade cg ON a.id_ag = cg.id_ag
@@ -360,20 +384,39 @@ class Dmd(ctk.CTkFrame):
             result_agent = cursor.fetchone()
             
             if result_agent:
-                date_embauche = result_agent[8] if result_agent[8] else "-"
-                solde_conge = self.calculer_solde_conge(date_embauche)
+                id_ag = result_agent[0]
+                date_embauche = result_agent[9] if result_agent[9] else "-"
+                
+                # Calculer le solde avec le bon ID et type
+                solde_conge = 0
+                if date_embauche != "-":
+                    try:
+                        from logic.gestion_solde import obtenir_solde_reel
+                        date_entree = None
+                        for fmt in ['%Y-%m-%d', '%d/%m/%Y']:
+                            try:
+                                date_entree = datetime.strptime(date_embauche, fmt).date()
+                                break
+                            except ValueError: continue
+                        
+                        if date_entree:
+                            solde_conge = obtenir_solde_reel(id_ag, "agent", date_entree)
+                    except Exception as e:
+                        print(f"Erreur calcul solde: {e}")
+                        solde_conge = 0
                 
                 # Personnel trouvé dans la table AgentContractuel
                 data = {
-                    "matricule": result_agent[0] if result_agent[0] else "-",
-                    "nom": result_agent[1] if result_agent[1] else "-",
-                    "prenom": result_agent[2] if result_agent[2] else "-",
+                    "id_interne": id_ag,  # ID nécessaire pour calcul solde
+                    "matricule": result_agent[1] if result_agent[1] else "-",
+                    "nom": result_agent[2] if result_agent[2] else "-",
+                    "prenom": result_agent[3] if result_agent[3] else "-",
                     "type": "Agent Contractuel",
-                    "position": result_agent[3] if result_agent[3] else "-",
-                    "statut": result_agent[4] if result_agent[4] else "-",
-                    "classe": result_agent[5] if result_agent[5] else "-",
-                    "echelle": result_agent[6] if result_agent[6] else "-",
-                    "corps": result_agent[7] if result_agent[7] else "-",
+                    "position": result_agent[4] if result_agent[4] else "-",
+                    "statut": result_agent[5] if result_agent[5] else "-",
+                    "classe": result_agent[6] if result_agent[6] else "-",
+                    "echelle": result_agent[7] if result_agent[7] else "-",
+                    "corps": result_agent[8] if result_agent[8] else "-",
                     "date_embauche": date_embauche,
                     "solde_conge": solde_conge
                 }
@@ -566,7 +609,6 @@ class Dmd(ctk.CTkFrame):
             cursor = conn.cursor()
 
             # Imports des modèles pour accès aux méthodes/props si besoin
-            # Note: nous utilisons directement SQL mais les classes aident à structurer
             import uuid
 
             # 1. Identifier le personnel (Fonctionnaire ou Agent)
@@ -577,14 +619,13 @@ class Dmd(ctk.CTkFrame):
             id_fonc_val = str(uuid.uuid4())
             id_ag_val = str(uuid.uuid4())
             
-            
             # Essai Fonctionnaire
             cursor.execute("SELECT id_fonc FROM Fonctionnaire WHERE num_matricule = ?", (matricule,))
             res = cursor.fetchone()
             if res:
                 id_personne_trouve = res[0]
                 is_fonctionnaire = True
-                id_fonc_val = id_personne_trouve # On remplace le UUID par le vrai ID
+                id_fonc_val = id_personne_trouve
             else:
                 # Essai Agent Contractuel
                 cursor.execute("SELECT id_ag FROM AgentContractuel WHERE num_matricule = ?", (matricule,))
@@ -592,15 +633,42 @@ class Dmd(ctk.CTkFrame):
                 if res:
                     id_personne_trouve = res[0]
                     is_fonctionnaire = False
-                    id_ag_val = id_personne_trouve # On remplace le UUID par le vrai ID
+                    id_ag_val = id_personne_trouve
             
             if not id_personne_trouve:
                 messagebox.showerror("Erreur", "Personnel introuvable.")
                 conn.close()
                 return
+            
+            # 2. VÉRIFICATION CRITIQUE DU SOLDE POUR CONGÉ ANNUEL
+            solde_actuel = 0
+            if type_conge in ["Congé annuel", "Congé annuel cumulé"]:
+                # Récupérer le solde actuel
+                if self.current_personnel_data:
+                    solde_actuel = self.current_personnel_data.get('solde_conge', 0)
+                else:
+                    # Calculer le solde si pas encore chargé
+                    date_embauche = self.get_date_embauche_from_matricule(matricule)
+                    solde_actuel = self.calculer_solde_conge(date_embauche)
+                
+                # Vérifier si le solde est suffisant
+                if duree_demandee > solde_actuel:
+                    messagebox.showerror(
+                        "Erreur: Solde insuffisant",
+                        f"Le solde de congé disponible ({solde_actuel} jours) "
+                        f"est insuffisant pour la durée demandée ({duree_demandee} jours).\n\n"
+                        f"Veuillez ajuster votre demande."
+                    )
+                    conn.close()
+                    return
+                else:
+                    # Calculer le nouveau solde après la demande
+                    nouveau_solde = solde_actuel - duree_demandee
+                    print(f"Solde avant: {solde_actuel} jours")
+                    print(f"Durée demandée: {duree_demandee} jours")
+                    print(f"Solde après: {nouveau_solde} jours")
 
-            # 2. Insérer l'objet demande (Conge/Permission/Autorisation)
-            # Variables pour PersoConge (toutes initialisées à UUID par défaut)
+            # 3. Insérer l'objet demande (Conge/Permission/Autorisation)
             id_conge_val = str(uuid.uuid4())
             id_permission_val = str(uuid.uuid4())
             id_aut_val = str(uuid.uuid4())
@@ -611,7 +679,7 @@ class Dmd(ctk.CTkFrame):
                 # --- PERMISSION ---
                 perm = Permission(motif, duree_demandee, validation_status)
                 real_id = str(perm.id_permission)
-                id_permission_val = real_id # Vrai ID
+                id_permission_val = real_id
                 
                 cursor.execute('''
                     INSERT INTO Permission (id_permission, motif, duree, validation)
@@ -621,8 +689,8 @@ class Dmd(ctk.CTkFrame):
             elif "Autorisation" in type_conge:
                 # --- AUTORISATION ---
                 aut = Autorisation(type_conge, duree_demandee, validation_status)
-                real_id = str(aut._id_aut) # ou aut.id_aut si dispo
-                id_aut_val = real_id # Vrai ID
+                real_id = str(aut._id_aut)
+                id_aut_val = real_id
                 
                 cursor.execute('''
                     INSERT INTO Autorisation (id_aut, type, duree, validation)
@@ -633,21 +701,15 @@ class Dmd(ctk.CTkFrame):
                 # --- CONGE ---
                 cng = Conge(type_conge, duree_demandee, validation_status)
                 real_id = str(cng.id_conge)
-                id_conge_val = real_id # Vrai ID
+                id_conge_val = real_id
                 
                 cursor.execute('''
                     INSERT INTO Conge (id_conge, type, duree, validation)
                     VALUES (?, ?, ?, ?)
                 ''', (real_id, cng.type_conge, cng.duree, cng.validation))
 
-            # 3. Insérer dans PersoConge (Nouvelle Structure)
-            # Structure: id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag
-            
+            # 4. Insérer dans PersoConge
             id_pc = str(uuid.uuid4())
-            
-            # Note: Perso_Conge modèle est maintenant "out of sync" avec la DB, 
-            # on fait l'insertion directe sans passer par la classe PersoConge pour ce cas spécifique
-            # pour respecter scrupuleusement le schéma demandé.
             
             cursor.execute('''
                 INSERT INTO PersoConge (id_pc, date_depart, date_fin, id_conge, id_permission, id_aut, id_fonc, id_ag)
@@ -657,27 +719,33 @@ class Dmd(ctk.CTkFrame):
             conn.commit()
             conn.close()
             
-            messagebox.showinfo("Succès", "La demande a été enregistrée avec succès.")
+            # Message de succès avec informations sur le solde
+            solde_restant = None
+            if type_conge in ["Congé annuel", "Congé annuel cumulé"]:
+                solde_restant = solde_actuel - duree_demandee
             
-            # Reset form partial
+            messagebox.showinfo(
+                "Succès", 
+                f"La demande a été enregistrée avec succès.\n"
+                f"Durée: {duree_demandee} jours\n"
+                f"Solde restant: {solde_restant if solde_restant is not None else 'N/A'} jours"
+            )
+            
+            # Reset form
             self.entry_matricule.delete(0, 'end')
             self.entry_motif.delete("1.0", "end")
-            # Keep dates or reset? Reset implies cleaner state
             if hasattr(self, 'entry_date_debut'): self.entry_date_debut.delete(0, 'end')
             if hasattr(self, 'entry_date_fin'): self.entry_date_fin.delete(0, 'end')
             
         except sqlite3.Error as e:
             messagebox.showerror("Erreur Base de Données", f"Une erreur est survenue: {e}")
-            if conn: conn.rollback(); conn.close()
+            if 'conn' in locals() and conn: 
+                conn.rollback()
+                conn.close()
         except Exception as e:
             messagebox.showerror("Erreur", f"Une erreur inattendue: {e}")
             if 'conn' in locals() and conn: conn.close()
             print(e)
-
-        # Si un contrôleur est défini, lui passer les données (optionnel, pour MàJ immédiate si besoin)
-        if self.controller and hasattr(self.controller, 'ajouter_demande'):
-             # data = ...
-             pass
             
     def get_date_embauche_from_matricule(self, matricule):
         """Récupère la date d'embauche sans refaire toute la recherche"""

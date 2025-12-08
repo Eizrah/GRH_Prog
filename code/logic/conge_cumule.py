@@ -1,110 +1,81 @@
-# Calcul du congé annuel cumulé pour le personnel
 import datetime
 
 def calculer_conge_cumule(date_entree: datetime.date, date_demande: datetime.date, jours_par_an: int = 15, silent: bool = False) -> int:
     """
     Calcule le congé cumulé en jours entre deux dates, en appliquant une règle de 
     cumul maximale de 5 années glissantes.
-
-    Args:
-        date_entree (datetime.date): La date d'entrée en service (début du cumul).
-        date_demande (datetime.date): La date à laquelle le solde est demandé.
-        jours_par_an (int): Le nombre de jours de congé attribué par année complète.
-        silent (bool): Si True, supprime les messages de débogage.
-
-    Returns:
-        int: Le solde de congé cumulé total en jours.
+    
+    IMPORTANT: Le solde ne commence qu'à partir de l'année suivante l'entrée.
+    Si la date_demande est dans la même année que date_entree, le solde est 0.
     """
     
-    # 1. Initialisation
+    # 1. Vérification que la date_demande est après la date_entree
+    if date_demande <= date_entree:
+        if not silent:
+            print("La date de demande doit être postérieure à la date d'entrée.")
+        return 0
     
-    # Stocke les jours de congé par année. La clé est l'année (int), la valeur est le congé (int).
-    conges_par_annee = {} 
+    # 2. Initialisation
+    conges_par_annee = {}
     
-    # L'année de départ du calcul est l'année suivant l'entrée.
+    # L'année de départ du calcul est l'année SUIVANTE l'entrée
     annee_debut_cumul = date_entree.year + 1
     annee_fin_cumul = date_demande.year
     
-    # Si la date d'entrée et la date de demande sont dans la même année, il n'y a pas
-    # d'années complètes pour le cumul.
-    if annee_fin_cumul <= annee_debut_cumul:
+    # Si l'année de début est supérieure à l'année de fin, solde = 0
+    if annee_debut_cumul > annee_fin_cumul:
         if not silent:
-            print("Aucune année complète de service n'est écoulée pour le cumul de congés.")
+            print(f"Aucune année complète de service: entrée {date_entree.year}, demande {date_demande.year}")
         return 0
-
-    # 2. Boucle de Cumul Annuel
     
+    # 3. Boucle de cumul
     if not silent:
         print(f"\n--- Calcul des Congés Cumulés entre {annee_debut_cumul} et {annee_fin_cumul} ---")
     
     for annee_courante in range(annee_debut_cumul, annee_fin_cumul + 1):
         
         # A. Ajout du congé pour l'année courante
-        
-        # Si on est en 2025, on ajoute les 15 jours pour 2025 (qui est la dernière année complète)
         conges_par_annee[annee_courante] = jours_par_an
         if not silent:
             print(f"✅ ANNEE {annee_courante}: {jours_par_an} jours ajoutés.")
         
         # B. Application de la règle de 5 ans glissants
-        
-        # Le nombre maximum d'années à conserver est 5. Si la taille dépasse 5, on supprime.
-        
         if len(conges_par_annee) > 5:
-            # On trie les années pour s'assurer que l'on supprime la plus ancienne
             annees_triees = sorted(conges_par_annee.keys())
-            annee_a_supprimer = annees_triees[0] # L'année la plus ancienne dans le dictionnaire
-            
-            # On stocke les jours à retirer pour l'affichage
+            annee_a_supprimer = annees_triees[0]
             jours_retires = conges_par_annee.pop(annee_a_supprimer)
             
             if not silent:
                 print(f"❌ RÈGLE DES 5 ANS: L'année {annee_a_supprimer} est supprimée. Retrait de {jours_retires} jours.")
-            
-        # C. Affichage du solde de l'année
         
+        # C. Affichage du solde de l'année
         solde_actuel = sum(conges_par_annee.values())
         if not silent:
             print(f"   --> SOLDE À FIN {annee_courante}: {solde_actuel} jours.")
-
-    # 3. Résultat Final
+    
+    # 4. Résultat Final
     solde_final = sum(conges_par_annee.values())
+    
+    # Le solde inclut toutes les années accumulées, y compris l'année en cours
+    # car les congés se cumulent progressivement
+    
     if not silent:
         print("---------------------------------------------------------")
         print(f"**CONGÉ CUMULÉ TOTAL final au {date_demande.strftime('%Y-%m-%d')}: {solde_final} jours**")
         print("---------------------------------------------------------")
     
-    return solde_final
+    return max(0, solde_final)  # Garantir que le solde n'est pas négatif
 
-# 4. Exemple d'utilisation (Reprise de votre cas initial)
-#--------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    import os
-    os.system('cls')
+# Ajout d'une fonction pour calculer le solde initial (0 jours)
+def solde_initial(date_entree: datetime.date, date_aujourdhui: datetime.date = None) -> int:
+    """
+    Retourne 0 si moins d'un an de service, sinon calcule normalement
+    """
+    if date_aujourdhui is None:
+        date_aujourdhui = datetime.date.today()
     
-    date_entrer_ex1 = datetime.date(2020, 10, 21)
-    date_dmd_ex1 = datetime.date(2022, 5, 29) # La dernière année complète est 2024 (2020->2021->2022->2023->2024)
-
-    print("\n### EXEMPLE 1 : Cas sur 5 ans (2021 à 2024) ###")
-    conge_total_ex1 = calculer_conge_cumule(date_entrer_ex1, date_dmd_ex1)
-
-    # 5. Exemple illustrant la règle des 5 ans (Cumul qui dépasse les 5 ans)
-    #--------------------------------------------------------------------------------
-
-    date_entrer_ex2 = datetime.date(2018, 1, 1) # Entrée en 2018
-    date_dmd_ex2 = datetime.date(2025, 1, 1)   # Solde demandé en 2025
-
-    # Années de cumul complètes : 2019, 2020, 2021, 2022, 2023, 2024 (6 années)
-
-    print("\n### EXEMPLE 2 : Cas de suppression (A1 sera supprimé) ###")
-    conge_total_ex2 = calculer_conge_cumule(date_entrer_ex2, date_dmd_ex2)
-
-    # Le calcul en détail pour l'exemple 2 serait :
-    # 2019 (Ajout, Solde=15)
-    # 2020 (Ajout, Solde=30)
-    # 2021 (Ajout, Solde=45)
-    # 2022 (Ajout, Solde=60)
-    # 2023 (Ajout, Solde=75)
-    # 2024 (Ajout, Solde=90. Année 2019 est supprimée -> Solde = 90 - 15 = 75)
-    # Résultat final : 75 jours (conges pour 2020, 2021, 2022, 2023, 2024)
+    # Si moins d'un an, solde = 0
+    if (date_aujourdhui - date_entree).days < 365:
+        return 0
+    
+    return calculer_conge_cumule(date_entree, date_aujourdhui, silent=True)
