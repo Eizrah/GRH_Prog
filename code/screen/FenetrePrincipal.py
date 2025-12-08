@@ -13,10 +13,16 @@ COLORS = {
 }
 
 class Fenetreprincpale(ctk.CTk):
-    def __init__(self):
+    def __init__(self, user_data=None):
         super().__init__()
         ctk.set_appearance_mode("Light")
         ctk.set_default_color_theme("blue")
+        
+        # Stocker les informations de session
+        self.current_user = user_data or {}
+        self.user_role = self.current_user.get('role', 'guest')
+        self.user_name = self.current_user.get('nom_complet', 'Utilisateur')
+        self.user_matricule = self.current_user.get('matricule', 'N/A')
         
         # paramètres de la fenêtre principale
         self.title("Application RH - Gestion du Personnel")
@@ -35,7 +41,7 @@ class Fenetreprincpale(ctk.CTk):
         
         # --- 1. PLACEMENT DE LA BARRE DE NAVIGATION (Colonne 0) ---
         # On passe 'self' (l'instance de Fenetreprincpale) comme contrôleur
-        self.nav_bar = NavBar(master=self, controller=self)
+        self.nav_bar = NavBar(master=self, controller=self, user_data=self.current_user)
         self.nav_bar.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         
         # --- 2. CADRE CONTENEUR DE VUES (Colonne 1) ---
@@ -44,15 +50,28 @@ class Fenetreprincpale(ctk.CTk):
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
 
-        # --- 3. CRÉATION ET ENREGISTREMENT DES VUES ---
-        # Liste des classes de vues à instancier
-        views = [DashboardView, AjoutPersonnelView, Dmd, AdminFrame, MyAccount]
+        # --- 3. CRÉATION ET ENREGISTREMENT DES VUES SELON LE RÔLE ---
+        # Liste des classes de vues à instancier selon le rôle
+        if self.user_role == 'admin':
+            # Admin: Dashboard + AdminFrame + Mon Compte
+            views = [DashboardView, AdminFrame, MyAccount]
+        elif self.user_role == 'rh':
+            # RH: Dashboard + AddPers + Dmd + Mon Compte
+            views = [DashboardView, AjoutPersonnelView, Dmd, MyAccount]
+        else:
+            # Par défaut (guest): seulement Dashboard
+            views = [DashboardView]
+        
         
         for F in views:
             # Le nom de la vue est le nom de la classe
             frame_name = F.__name__
             # Instanciation de la vue dans le container
-            frame = F(master=self.container, controller=self)
+            # Passer user_data à MyAccount
+            if frame_name == "MyAccount":
+                frame = F(master=self.container, controller=self, user_data=self.current_user)
+            else:
+                frame = F(master=self.container, controller=self)
             # Enregistrement dans le dictionnaire
             self.frames[frame_name] = frame
             # Placement de la frame pour qu'elle remplisse tout le container (mais elle est cachée initialement)
@@ -89,8 +108,11 @@ class Fenetreprincpale(ctk.CTk):
             self.nav_bar.DeconnexionBtn.configure(command=self.quitter_application)
 
     def quitter_application(self):
-        """Méthode pour quitter l'application"""
+        """Méthode pour se déconnecter et retourner au login"""
         self.destroy()
+        from .Authentification import LoginPage
+        login = LoginPage()
+        login.mainloop()
 
     def show_frame(self, page_name, **kwargs):
         """ 

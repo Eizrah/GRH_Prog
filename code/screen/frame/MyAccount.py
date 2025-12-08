@@ -14,9 +14,10 @@ COLORS = {
 class MyAccount(ctk.CTkFrame):
     """Frame pour afficher les informations du compte utilisateur"""
     
-    def __init__(self, master, controller=None, **kwargs):
+    def __init__(self, master, controller=None, user_data=None, **kwargs):
         super().__init__(master, fg_color=COLORS['BG_LIGHT_GREY'], **kwargs)
         self.controller = controller
+        self.user_data = user_data or {}
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -49,10 +50,13 @@ class MyAccount(ctk.CTkFrame):
         profile_frame.grid(row=1, column=0, sticky="ew", pady=(0, 20))
         profile_frame.grid_columnconfigure(1, weight=1)
         
-        # Avatar
+        
+        # Avatar - Première lettre du nom
+        user_name = self.user_data.get('nom_complet', 'Utilisateur')
+        initial = user_name[0].upper() if user_name else "U"
         avatar_label = ctk.CTkLabel(
             profile_frame,
-            text="R",
+            text=initial,
             font=ctk.CTkFont(family="Arial", size=36, weight="bold"),
             text_color=COLORS['CARD_WHITE'],
             fg_color=COLORS['ACCENT_BLUE'],
@@ -65,7 +69,7 @@ class MyAccount(ctk.CTkFrame):
         # Nom
         name_label = ctk.CTkLabel(
             profile_frame,
-            text="Responsable RH",
+            text=user_name,
             font=ctk.CTkFont(family="Arial", size=22, weight="bold"),
             text_color=COLORS['TEXT_DARK'],
             anchor="w"
@@ -73,9 +77,12 @@ class MyAccount(ctk.CTkFrame):
         name_label.grid(row=0, column=1, sticky="w", padx=10, pady=(30, 5))
         
         # Matricule et type
+        matricule = self.user_data.get('matricule', 'N/A')
+        role = self.user_data.get('role', 'utilisateur')
+        role_display = "Administrateur" if role == 'admin' else "RH" if role == 'rh' else "Utilisateur"
         info1_label = ctk.CTkLabel(
             profile_frame,
-            text="Matricule: RH001 | Fonctionnaire",
+            text=f"Matricule: {matricule} | {role_display}",
             font=ctk.CTkFont(family="Arial", size=13),
             text_color=COLORS['TEXT_GREY'],
             anchor="w"
@@ -85,7 +92,7 @@ class MyAccount(ctk.CTkFrame):
         # Poste et grade
         info2_label = ctk.CTkLabel(
             profile_frame,
-            text="Poste: Responsable RH | Grade: Chef de service",
+            text=f"Poste: {user_name} | Grade: -",
             font=ctk.CTkFont(family="Arial", size=13),
             text_color=COLORS['TEXT_GREY'],
             anchor="w"

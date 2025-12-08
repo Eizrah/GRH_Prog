@@ -15,10 +15,14 @@ COLORS = {
 }
 
 class NavBar(customtkinter.CTkFrame):
-    def __init__(self, master, controller=None, **kwargs):
+    def __init__(self, master, controller=None, user_data=None, **kwargs):
         super().__init__(master, width=280, corner_radius=0, fg_color=COLORS['NAV_BG'], **kwargs)
         
         self.controller = controller
+        self.user_data = user_data or {}
+        self.user_role = self.user_data.get('role', 'guest')
+        self.user_name = self.user_data.get('nom_complet', 'Utilisateur')
+        self.user_matricule = self.user_data.get('matricule', 'N/A')
         
         # Configuration de la grille
         self.grid_columnconfigure(0, weight=1)
@@ -64,10 +68,11 @@ class NavBar(customtkinter.CTkFrame):
         user_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(20, 30))
         user_frame.grid_columnconfigure(1, weight=1)
         
-        # Cercle avec initiale (Avatar)
+        # Cercle avec initiale (Avatar) - Première lettre du nom
+        initial = self.user_name[0].upper() if self.user_name else "U"
         avatar_label = customtkinter.CTkLabel(
             user_frame,
-            text="R",
+            text=initial,
             font=customtkinter.CTkFont(family="Arial", size=20, weight="bold"),
             text_color=COLORS['TEXT_WHITE'],
             fg_color=COLORS['ACCENT_BLUE'],
@@ -80,7 +85,7 @@ class NavBar(customtkinter.CTkFrame):
         # Nom de rôle
         role_label = customtkinter.CTkLabel(
             user_frame,
-            text="Responsable RH",
+            text=self.user_name,
             font=customtkinter.CTkFont(family="Arial", size=14, weight="bold"),
             text_color=COLORS['TEXT_WHITE'],
             anchor="w"
@@ -88,9 +93,10 @@ class NavBar(customtkinter.CTkFrame):
         role_label.grid(row=0, column=1, sticky="w")
         
         # Statut avec point vert
+        status_text = f"● {self.user_matricule}"
         status_label = customtkinter.CTkLabel(
             user_frame,
-            text="● Responsable RH",
+            text=status_text,
             font=customtkinter.CTkFont(family="Arial", size=11),
             text_color=COLORS['ACCENT_GREEN'],
             anchor="w"
@@ -102,7 +108,9 @@ class NavBar(customtkinter.CTkFrame):
         self.nav_links_frame.grid(row=2, column=0, sticky="nsew", padx=15, pady=(0, 10))
         self.nav_links_frame.grid_columnconfigure(0, weight=1)
         
-        # Bouton Dashboard (actif par défaut)
+        row_index = 0
+        
+        # Bouton Dashboard (toujours visible)
         self.dashboard = customtkinter.CTkButton(
             self.nav_links_frame,
             text="📊 Tableau de bord",
@@ -114,51 +122,57 @@ class NavBar(customtkinter.CTkFrame):
             height=45,
             font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
         )
-        self.dashboard.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        self.dashboard.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
+        row_index += 1
         
-        # Bouton Ajouter Personne
-        self.addPers = customtkinter.CTkButton(
-            self.nav_links_frame,
-            text="👤 Ajouter Personne",
-            fg_color="transparent",
-            text_color=COLORS['TEXT_WHITE'],
-            hover_color=COLORS['HOVER_COLOR'],
-            anchor="w",
-            corner_radius=8,
-            height=45,
-            font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
-        )
-        self.addPers.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        # Boutons selon le rôle
+        if self.user_role == 'admin':
+            # Admin: AdminFrame
+            self.ValidationAdmin = customtkinter.CTkButton(
+                self.nav_links_frame,
+                text="� Liste des demandes",
+                fg_color="transparent",
+                text_color=COLORS['TEXT_WHITE'],
+                hover_color=COLORS['HOVER_COLOR'],
+                anchor="w",
+                corner_radius=8,
+                height=45,
+                font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
+            )
+            self.ValidationAdmin.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
+            row_index += 1
+            
+        elif self.user_role == 'rh':
+            # RH: AddPers + Dmd
+            self.addPers = customtkinter.CTkButton(
+                self.nav_links_frame,
+                text="� Ajouter Personne",
+                fg_color="transparent",
+                text_color=COLORS['TEXT_WHITE'],
+                hover_color=COLORS['HOVER_COLOR'],
+                anchor="w",
+                corner_radius=8,
+                height=45,
+                font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
+            )
+            self.addPers.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
+            row_index += 1
+            
+            self.DemandeBtn = customtkinter.CTkButton(
+                self.nav_links_frame,
+                text="� Demande de Congé",
+                fg_color="transparent",
+                text_color=COLORS['TEXT_WHITE'],
+                hover_color=COLORS['HOVER_COLOR'],
+                anchor="w",
+                corner_radius=8,
+                height=45,
+                font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
+            )
+            self.DemandeBtn.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
+            row_index += 1
         
-        # Bouton Demande de Congé
-        self.DemandeBtn = customtkinter.CTkButton(
-            self.nav_links_frame,
-            text="📝 Demande de Congé",
-            fg_color="transparent",
-            text_color=COLORS['TEXT_WHITE'],
-            hover_color=COLORS['HOVER_COLOR'],
-            anchor="w",
-            corner_radius=8,
-            height=45,
-            font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
-        )
-        self.DemandeBtn.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
-        
-        # Bouton Liste des demandes
-        self.ValidationAdmin = customtkinter.CTkButton(
-            self.nav_links_frame,
-            text="📋 Liste des demandes",
-            fg_color="transparent",
-            text_color=COLORS['TEXT_WHITE'],
-            hover_color=COLORS['HOVER_COLOR'],
-            anchor="w",
-            corner_radius=8,
-            height=45,
-            font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
-        )
-        self.ValidationAdmin.grid(row=3, column=0, padx=5, pady=5, sticky="ew")
-        
-        # Bouton Mon Compte
+        # Bouton Mon Compte (toujours visible)
         self.MonCompteBtn = customtkinter.CTkButton(
             self.nav_links_frame,
             text="👤 Mon Compte",
@@ -170,7 +184,7 @@ class NavBar(customtkinter.CTkFrame):
             height=45,
             font=customtkinter.CTkFont(family="Arial", size=14, weight="bold")
         )
-        self.MonCompteBtn.grid(row=4, column=0, padx=5, pady=5, sticky="ew")
+        self.MonCompteBtn.grid(row=row_index, column=0, padx=5, pady=5, sticky="ew")
         
         # === BOUTON DÉCONNEXION ===
         self.DeconnexionBtn = customtkinter.CTkButton(
@@ -188,11 +202,16 @@ class NavBar(customtkinter.CTkFrame):
         """Change la couleur du bouton actif"""
         buttons = {
             'dashboard': self.dashboard,
-            'addPers': self.addPers,
-            'DemandeBtn': self.DemandeBtn,
-            'ValidationAdmin': self.ValidationAdmin,
             'MonCompteBtn': self.MonCompteBtn
         }
+        
+        # Ajouter les boutons selon le rôle
+        if hasattr(self, 'addPers'):
+            buttons['addPers'] = self.addPers
+        if hasattr(self, 'DemandeBtn'):
+            buttons['DemandeBtn'] = self.DemandeBtn
+        if hasattr(self, 'ValidationAdmin'):
+            buttons['ValidationAdmin'] = self.ValidationAdmin
         
         for name, button in buttons.items():
             if name == button_name:

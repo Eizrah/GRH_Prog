@@ -3,16 +3,12 @@ Module d'authentification et page de connexion
 """
 import customtkinter as ctk
 from tkinter import messagebox
-from config import USERS_DB, DEFAULT_FONT_FAMILY, COLORS
-from global_state import global_state
+from .config import USERS_DB, DEFAULT_FONT_FAMILY, COLORS
+from .FenetrePrincipal import Fenetreprincpale
 
 class ModernLoginPage(ctk.CTk):
-    def __init__(self, data_manager):
+    def __init__(self):
         super().__init__()
-        self.data_manager = data_manager
-
-        # Stocker le data_manager dans l'état global
-        global_state.set_data_manager(data_manager)
 
         # Configuration de la fenêtre
         self.title("RH Legal Pro - Connexion")
@@ -93,7 +89,7 @@ class ModernLoginPage(ctk.CTk):
                     text_color=COLORS['TEXT_DARK']).pack(anchor="w")
 
         self.username_entry = ctk.CTkEntry(user_frame,
-                                          placeholder_text="ex: admin, rh, rakoto.jp, razafy.ms",
+                                          placeholder_text="ex: admin, rh",
                                           height=45,
                                           corner_radius=8,
                                           border_width=1,
@@ -146,16 +142,14 @@ class ModernLoginPage(ctk.CTk):
             return
 
         if username in USERS_DB and USERS_DB[username]["password"] == password:
-            # Stocker l'utilisateur dans l'état global
+            # Récupérer les données utilisateur
             user_data = USERS_DB[username]["data"].copy()
-            global_state.set_current_user(user_data)
 
             print(f"Connexion réussie: {user_data['nom_complet']}")
 
             # Fermer la fenêtre de connexion et ouvrir l'application principale
             self.destroy()
-            from main_app import ModernGestionCongeApp
-            app = ModernGestionCongeApp(self.data_manager)
+            app = Fenetreprincpale(user_data=user_data)
             app.mainloop()
         else:
             messagebox.showerror("Erreur d'authentification",
@@ -164,5 +158,4 @@ class ModernLoginPage(ctk.CTk):
 
     def on_closing(self):
         """Gère la fermeture de la fenêtre"""
-        self.data_manager.close()
         self.destroy()
