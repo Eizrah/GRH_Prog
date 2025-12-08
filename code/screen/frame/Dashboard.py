@@ -71,6 +71,10 @@ class DashboardView(ctk.CTkFrame):
         title_label = ctk.CTkLabel(self, text="Tableau de bord", text_color=COLORS['TEXT_DARK'], anchor="w",
                                 font=ctk.CTkFont(family=DEFAULT_FONT_FAMILY, size=24, weight="bold"))
         title_label.grid(row=0, column=0, padx=25, pady=(20, 5), sticky="w")
+        
+        # Bouton Actualiser
+        refresh_btn = ctk.CTkButton(self, text="Actualiser", width=100, command=self.refresh_dashboard, fg_color=COLORS['PRIMARY_BLUE'])
+        refresh_btn.grid(row=0, column=0, padx=25, pady=(20, 5), sticky="e")
 
         self.bilan_frame = Bilan(self, all_data, stats)
         self.bilan_frame.grid(row=1, column=0, padx=20, pady=0, sticky="new")
@@ -80,6 +84,22 @@ class DashboardView(ctk.CTkFrame):
 
         self.tab_agent = TableauDashboard(self, self.agent_data, title="📋 Liste des Agents Contractuels")
         self.tab_agent.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="nsew")
+
+    def refresh_dashboard(self):
+        """Recharge toutes les données du dashboard"""
+        self.fonc_data, self.agent_data = self.fetch_data()
+        all_data = self.fonc_data + self.agent_data
+        stats = self.fetch_stats()
+        
+        # Update Bilan
+        # On recrée le bilan car c'est plus simple (ou on ajoute update_stats à Bilan)
+        self.bilan_frame.destroy()
+        self.bilan_frame = Bilan(self, all_data, stats)
+        self.bilan_frame.grid(row=1, column=0, padx=20, pady=0, sticky="new")
+        
+        # Update Tables
+        self.tab_fonc.update_data(self.fonc_data)
+        self.tab_agent.update_data(self.agent_data)
 
     def fetch_data(self):
         try:
@@ -203,6 +223,14 @@ class TableauDashboard(ctk.CTkFrame):
         
         self.setup_table()
 
+        self.setup_table()
+
+    def update_data(self, new_data):
+        self.data = new_data
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+        self.setup_table()
+    
     def setup_table(self):
         headers = ("Matricule", "Nom", "Type", "Classe", "Échelle", "Corps", "Statut", "Action")
         col_weights = [1, 3, 1, 1, 1, 1, 2, 2] 
@@ -237,4 +265,89 @@ class TableauDashboard(ctk.CTkFrame):
             color = COLORS['ACCENT_GREEN'] if statut in ("En activité", "Sous le drapeau") else COLORS['ACCENT_RED']
             ctk.CTkLabel(self.scroll_frame, text=statut, text_color=color, fg_color=bg_color, anchor="w", font=ctk.CTkFont(weight="bold")).grid(row=row, column=6, sticky="nsew", padx=(5,0))
             
-            ctk.CTkButton(self.scroll_frame, text="✏️", width=30, fg_color=COLORS['PRIMARY_BLUE']).grid(row=row, column=7, sticky="w", padx=5)
+            # Actions Frame
+            action_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+            action_frame.grid(row=row, column=7, sticky="w", padx=5)
+            
+            # Bouton Modifier
+            ctk.CTkButton(action_frame, text="✏️", width=30, fg_color=COLORS['PRIMARY_BLUE'],
+                          command=lambda m=record["matricule"]: self.edit_personnel(m)).pack(side="left", padx=2)
+            
+            # Bouton Supprimer
+            ctk.CTkButton(action_frame, text="🗑️", width=30, fg_color=COLORS['ACCENT_RED'],
+                          command=lambda m=record["matricule"]: self.delete_personnel(m)).pack(side="left", padx=2)
+
+    def edit_personnel(self, matricule):
+        """Ouvre une boite de dialogue pour modifier le personnel"""
+        try:
+            # Création fenêtre modale
+            win = ctk.CTkToplevel(self)
+            win.title(f"Modifier Personnel - {matricule}")
+            win.geometry("1000x800")
+            win.grab_set() # Modale
+            
+            # Import différé pour éviter import circulaire
+            from .AddPers import AjoutPersonnelView
+            
+            # Fonction de callback pour rafraichir le dashboard après modif
+            def on_refresh():
+                if hasattr(self.master, 'refresh_dashboard'):
+                    self.master.refresh_dashboard()
+            
+            # Instantiation de la vue dans la fenêtre
+            view = AjoutPersonnelView(
+                win, 
+                controller=self.master.controller if hasattr(self.master, 'controller') else None,
+                close_callback=win.destroy,
+                refresh_callback=on_refresh
+            )
+            view.pack(fill="both", expand=True)
+            
+            # Initialisation en mode édition
+            view.on_show(edit_matricule=matricule)
+            
+        except ImportError:
+            print("Erreur import AjoutPersonnelView")
+        except Exception as e:
+            print(f"Erreur ouverture dialog: {e}")
+
+    def delete_personnel(self, matricule):
+        """Supprime le personnel après confirmation"""
+        from tkinter import messagebox
+        if not messagebox.askyesno("Confirmer", f"Voulez-vous vraiment supprimer le personnel {matricule} ?"):
+            return
+            
+        try:
+             # Import local pour accès DB
+            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Essayer Fonctionnaire
+            cursor.execute("DELETE FROM Fonctionnaire WHERE num_matricule = ?", (matricule,))
+            cnt = cursor.rowcount
+            if cnt == 0:
+                cursor.execute("DELETE FROM AgentContractuel WHERE num_matricule = ?", (matricule,))
+                cnt = cursor.rowcount
+                
+            conn.commit()
+            conn.close()
+            
+            if cnt > 0:
+                messagebox.showinfo("Succès", "Personnel supprimé.")
+                # Refresh dashboard if possible
+                if hasattr(self.master, 'fetch_data'):
+                     # Re-fetch and update UI (Simplifié: on pourrait recharger toute la vue)
+                     # Le plus simple est de rappeler __init__ ou une méthode refresh_view sur DashboardView
+                     # Mais ici on est dans TableauDashboard. On peut demander au master.
+                     
+                     # Mais ici on est dans TableauDashboard. On peut demander au master.
+                     if hasattr(self.master, 'refresh_dashboard'):
+                        self.master.refresh_dashboard()
+                     pass  
+            else:
+                messagebox.showwarning("Info", "Aucun enregistrement trouvé à supprimer.")
+                
+        except Exception as e:
+            print(f"Erreur delete: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors de la suppression: {e}")

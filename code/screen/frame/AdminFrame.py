@@ -78,6 +78,14 @@ class AdminFrame(customtkinter.CTkFrame):
     def refresh_table(self):
         """Récupère les données et les sépare dans les deux tableaux"""
         
+        # Import local pour conge_cumule pour éviter les soucis de path au top-level si possible
+        try:
+            from logic.conge_cumule import calculer_conge_cumule
+        except ImportError:
+            # Fallback si le path n'est pas encore bon (ex: run direct)
+            sys.path.append(os.path.join(project_root, 'code'))
+            from logic.conge_cumule import calculer_conge_cumule
+
         # Vider les tableaux
         for item in self.tree_fonc.get_children(): self.tree_fonc.delete(item)
         for item in self.tree_agent.get_children(): self.tree_agent.delete(item)
@@ -97,34 +105,37 @@ class AdminFrame(customtkinter.CTkFrame):
             rows = cursor.fetchall()
             
             for row in rows:
-                id_pc, d_dep, d_fin, id_c, id_p, id_a, id_f, id_ag = row
+                id_pc, d_dep_str, d_fin_str, id_c, id_p, id_a, id_f, id_ag = row
                 
-                # --- 1. Identifier la Personne ---
-                person_type = None # "fonc" ou "agent"
+                # --- 1. Identifier la Personne et Date Entrée ---
+                person_type = None 
                 person_info = {}
                 person_id = None
+                date_entree_str = None
                 
                 # Check Fonctionnaire
-                cursor.execute("SELECT num_matricule, nom, prenom FROM Fonctionnaire WHERE id_fonc = ?", (id_f,))
+                cursor.execute("SELECT num_matricule, nom, prenom, date_entre FROM Fonctionnaire WHERE id_fonc = ?", (id_f,))
                 res_f = cursor.fetchone()
                 if res_f:
                     person_type = "fonc"
                     person_id = id_f
                     person_info = {"matricule": res_f[0], "nom": res_f[1], "prenom": res_f[2]}
+                    date_entree_str = res_f[3]
                 else:
                     # Check Agent
-                    cursor.execute("SELECT num_matricule, nom, prenom FROM AgentContractuel WHERE id_ag = ?", (id_ag,))
+                    cursor.execute("SELECT num_matricule, nom, prenom, date_entre FROM AgentContractuel WHERE id_ag = ?", (id_ag,))
                     res_ag = cursor.fetchone()
                     if res_ag:
                         person_type = "agent"
                         person_id = id_ag
                         person_info = {"matricule": res_ag[0], "nom": res_ag[1], "prenom": res_ag[2]}
+                        date_entree_str = res_ag[3]
                 
                 if not person_type: continue 
                 
                 # --- 2. Identifier la Demande & Motif ---
                 req_type = "Inconnu"
-                req_detail = "" # Nom du congé ou Motif
+                req_detail = "" 
                 validation = "Inconnu"
                 
                 # Conge
@@ -132,7 +143,7 @@ class AdminFrame(customtkinter.CTkFrame):
                 res_c = cursor.fetchone()
                 if res_c:
                     req_type = "Congé"
-                    req_detail = res_c[0] # Nom du congé
+                    req_detail = res_c[0] 
                     validation = res_c[2]
                 else:
                     # Permission
@@ -140,7 +151,7 @@ class AdminFrame(customtkinter.CTkFrame):
                     res_p = cursor.fetchone()
                     if res_p:
                         req_type = "Permission"
-                        req_detail = res_p[0] # Motif
+                        req_detail = res_p[0]
                         validation = res_p[2]
                     else:
                         # Autorisation
@@ -148,12 +159,33 @@ class AdminFrame(customtkinter.CTkFrame):
                         res_a = cursor.fetchone()
                         if res_a:
                             req_type = "Autorisation"
-                            req_detail = res_a[0] # Type/Motif
+                            req_detail = res_a[0]
                             validation = res_a[2]
 
                 # --- 3. Récupérer Détails Avancés (Poste, Grade, Solde) ---
-                # Solde: Placeholder
-                solde = "N/A" 
+                
+                # Calcul Solde
+                solde = "N/A"
+                if date_entree_str and d_dep_str:
+                    try:
+                        # Helper pour parser les dates (Format ISO ou FR)
+                        def parse_date_flexible(d_str):
+                            for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+                                try:
+                                    return datetime.strptime(d_str, fmt).date()
+                                except ValueError:
+                                    pass
+                            raise ValueError(f"Format de date inconnu: {d_str}")
+
+                        d_entree = parse_date_flexible(date_entree_str)
+                        d_demande = parse_date_flexible(d_dep_str)
+                        
+                        val_solde = calculer_conge_cumule(d_entree, d_demande, silent=True)
+                        solde = f"{val_solde} jours"
+                    except Exception as e:
+                        print(f"Erreur calcul solde: {e}")
+                
+                # Poste 
                 
                 # Poste (via Affectation -> id_emploi -> Emplois.nom_poste)
                 nom_poste = "Non défini"
@@ -195,7 +227,7 @@ class AdminFrame(customtkinter.CTkFrame):
                     "req_type": req_type,
                     "req_detail": req_detail, # Nom conge ou Motif
                     "validation": validation,
-                    "dates": f"{d_dep} à {d_fin}",
+                    "dates": f"{d_dep_str} à {d_fin_str}",
                     "id_conge": id_c if req_type == "Congé" else (id_p if req_type=="Permission" else id_a)
                 }
                 
@@ -203,7 +235,7 @@ class AdminFrame(customtkinter.CTkFrame):
                 
                 # Affichage
                 vals = (person_info['matricule'], f"{person_info['nom']} {person_info['prenom']}", 
-                        req_type, f"{d_dep} au {d_fin}", solde, "Voir Détails")
+                        req_type, f"{d_dep_str} au {d_fin_str}", solde, "Voir Détails")
                 
                 # Tags pour couleur
                 tag = "pending"

@@ -103,19 +103,128 @@ class DateSelector(ctk.CTkToplevel):
             self.destroy()
 
 class AjoutPersonnelView(ctk.CTkFrame):
-    def __init__(self, master, controller=None, **kwargs):
+    def __init__(self, master, controller=None, close_callback=None, refresh_callback=None, **kwargs):
         super().__init__(master, fg_color=COLORS['BG_LIGHT_GREY'], **kwargs)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        self.controller = controller # Le contrôleur sera utilisé pour la soumission réelle
+        self.controller = controller 
+        self.current_edit_matricule = None 
         
-        # Le cadre scrollable permet d'assurer que le formulaire entier est visible
+        # Callbacks pour usage en dialog
+        self.close_callback = close_callback
+        self.refresh_callback = refresh_callback
+        
         self.scrollable_content = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scrollable_content.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.scrollable_content.grid_columnconfigure(0, weight=1)
 
-        # Appel de la méthode qui construit la vue
         self.create_ajout_personnel_view(self.scrollable_content)
+
+    def on_show(self, **kwargs):
+        """Appelé lors de l'affichage de la vue"""
+        edit_matricule = kwargs.get('edit_matricule')
+        if edit_matricule:
+            self.current_edit_matricule = edit_matricule
+            self.load_personnel_data(edit_matricule)
+            self.ValiderBtn.configure(text="Modifier le Personnel", command=self.Update_personnel)
+            # Désactiver le changement de type et le matricule
+            self.entry_matricule.configure(state="disabled")
+            self.combo_type_personnel.configure(state="disabled")
+            # Update title if possible or just rely on context
+        else:
+            self.current_edit_matricule = None
+            self.reset_form()
+            self.ValiderBtn.configure(text="Créer le Personnel", command=self.Ajout_personnel)
+            self.entry_matricule.configure(state="normal")
+            self.combo_type_personnel.configure(state="readonly")
+            
+    def reset_form(self):
+        """Réinitialise le formulaire"""
+        self.entry_matricule.delete(0, 'end')
+        self.entry_nom.delete(0, 'end')
+        self.entry_prenom.delete(0, 'end')
+        # Reset autres champs standards... (simplifié)
+        self.var_type_personnel.set("Fonctionnaire")
+        self.update_personnel_type_fields("Fonctionnaire")
+        
+    def load_personnel_data(self, matricule):
+        """Charge les données d'un personnel existant"""
+        try:
+            # 1. Chercher Fonctionnaire
+            cursor.execute("SELECT * FROM Fonctionnaire WHERE num_matricule = ?", (matricule,))
+            row = cursor.fetchone()
+            p_type = "Fonctionnaire"
+            
+            if not row:
+                cursor.execute("SELECT * FROM AgentContractuel WHERE num_matricule = ?", (matricule,))
+                row = cursor.fetchone()
+                p_type = "Agent Contractuel"
+            
+            if not row:
+                messagebox.showerror("Erreur", "Personnel introuvable")
+                return
+
+            # Colonnes Fonctionnaire (exemple indices, à ajuster selon schema réel ou utiliser row factory)
+            # num_matricule, nom, prenom, date_naissance, lieu_naissance, date_entre, date_sorti, objet_depart, position, diplome, id_cadre, id_fonc
+            
+            # Map simple des indices (Attention aux changements de schéma!)
+            # On suppose l'ordre standard INSERT utilisé ailleurs
+            
+            self.var_type_personnel.set(p_type)
+            self.update_personnel_type_fields(p_type)
+            
+            self.entry_matricule.configure(state="normal")
+            self.entry_matricule.delete(0, 'end')
+            self.entry_matricule.insert(0, row[0]) # Matricule
+            self.entry_matricule.configure(state="disabled") # Re-disable
+            
+            self.entry_nom.delete(0, 'end'); self.entry_nom.insert(0, row[1])
+            self.entry_prenom.delete(0, 'end'); self.entry_prenom.insert(0, row[2])
+            
+            # Dates
+            if row[3]: self.entry_date_naissance.delete(0, 'end'); self.entry_date_naissance.insert(0, row[3])
+            self.entry_lieu_naissance.delete(0, 'end'); self.entry_lieu_naissance.insert(0, row[4])
+            if row[5]: self.entry_date_entree.delete(0, 'end'); self.entry_date_entree.insert(0, row[5])
+            
+            # Position
+            if row[8]: self.var_position.set(row[8])
+            
+            # Specifique
+            if p_type == "Fonctionnaire":
+                id_personne = row[11] # id_fonc
+                if row[9]: self.entry_diplome.delete(0, 'end'); self.entry_diplome.insert(0, row[9])
+            else:
+                id_personne = row[11] # id_ag
+                # Agent: statut (idx 9), diplome n'existe pas
+                if row[9]: self.var_statut.set(row[9])
+                
+            # TODO: Charger Emploi via Affectation
+            cursor.execute("SELECT id_emploi FROM Affectation WHERE id_fonc = ? OR id_ag = ?", (id_personne if p_type=="Fonctionnaire" else None, id_personne if p_type!="Fonctionnaire" else None))
+            aff = cursor.fetchone()
+            if aff:
+                cursor.execute("SELECT nom_poste, lieu FROM Emplois WHERE id_emploi = ?", (aff[0],))
+                emp = cursor.fetchone()
+                if emp:
+                    self.entry_job_title.delete(0, 'end'); self.entry_job_title.insert(0, emp[0])
+                    self.entry_workplace.delete(0, 'end'); self.entry_workplace.insert(0, emp[1])
+            
+            # TODO: Charger Grade via Change_grade
+            cursor.execute("SELECT id_grade FROM Change_grade WHERE id_fonc = ? OR id_ag = ? ORDER BY date_av DESC LIMIT 1", (id_personne if p_type=="Fonctionnaire" else None, id_personne if p_type!="Fonctionnaire" else None))
+            cg = cursor.fetchone()
+            if cg:
+                cursor.execute("SELECT titre, classe, echelon FROM Grade WHERE id_grade = ?", (cg[0],))
+                gr = cursor.fetchone()
+                if gr:
+                    # Titre
+                    if hasattr(self, 'entry_titre_grade'): 
+                         self.entry_titre_grade.delete(0, 'end'); self.entry_titre_grade.insert(0, gr[0])
+                    self.var_grade_classe.set(gr[1])
+                    self.update_grade_echelon_options(gr[1])
+                    self.var_grade_echelon.set(str(gr[2]))
+
+        except Exception as e:
+            print(f"Erreur load data: {e}")
+            messagebox.showerror("Erreur", f"Erreur chargement: {e}")
 
     def create_card_frame(self, master, title):
         """ Crée le cadre blanc principal (la 'carte') pour le formulaire. """
@@ -566,6 +675,89 @@ class AjoutPersonnelView(ctk.CTkFrame):
         # print(f"Personnel ID: {personnel_obj.num_matricule} | Type: {personnel_type} | Nom: {personnel_obj.nom}")
         # print("---------------------------------------")
         messagebox.showinfo("Soumission Réussie", f"Personnel de type '{personnel_type}' créé avec succès. Détails en console.")
+
+    def Update_personnel(self):
+        """Met à jour le personnel existant"""
+        matricule = self.current_edit_matricule
+        if not matricule: return
+
+        # Récupération des données (Méthode similaire à Ajout mais ID existants)
+        # Pour simplifier, on update juste les champs principaux
+        
+        try:
+             # Update Fonctionnaire / Agent
+            nom = self.entry_nom.get()
+            prenom = self.entry_prenom.get()
+            pos = self.var_position.get()
+            
+            # Update Fonctionnaire / Agent
+            nom = self.entry_nom.get()
+            prenom = self.entry_prenom.get()
+            date_n = self.entry_date_naissance.get()
+            lieu_n = self.entry_lieu_naissance.get()
+            date_e = self.entry_date_entree.get()
+            date_s = self.entry_date_sortie.get() or None
+            obj_d = self.entry_objet_depart.get() or None
+            pos = self.var_position.get()
+            
+            if self.var_type_personnel.get() == "Fonctionnaire":
+                dip = self.entry_diplome.get()
+                cursor.execute("""
+                    UPDATE Fonctionnaire 
+                    SET nom=?, prenom=?, date_naissance=?, lieu_naissance=?, 
+                        date_entre=?, date_sorti=?, objet_depart=?, position=?, diplome=? 
+                    WHERE num_matricule=?
+                """, (nom, prenom, date_n, lieu_n, date_e, date_s, obj_d, pos, dip, matricule))
+            else:
+                stat = self.var_statut.get()
+                cursor.execute("""
+                    UPDATE AgentContractuel 
+                    SET nom=?, prenom=?, date_naissance=?, lieu_naissance=?, 
+                        date_entre=?, date_sorti=?, objet_depart=?, position=?, satut=? 
+                    WHERE num_matricule=?
+                """, (nom, prenom, date_n, lieu_n, date_e, date_s, obj_d, pos, stat, matricule))
+            
+            # Update Emplois (via Join? ou on update via id_personne)
+            # On doit retrouver id_emploi
+            p_type = self.var_type_personnel.get()
+            col_id = "id_fonc" if p_type == "Fonctionnaire" else "id_ag"
+            
+            # Retrouver l'ID personne
+            table = "Fonctionnaire" if p_type == "Fonctionnaire" else "AgentContractuel"
+            cursor.execute(f"SELECT {col_id} FROM {table} WHERE num_matricule = ?", (matricule,))
+            pid = cursor.fetchone()[0]
+            
+            # Update Affectation -> Emploi
+            cursor.execute(f"SELECT id_emploi FROM Affectation WHERE {col_id} = ?", (pid,))
+            aff = cursor.fetchone()
+            if aff:
+                cursor.execute("UPDATE Emplois SET nom_poste=?, lieu=? WHERE id_emploi=?",
+                               (self.entry_job_title.get(), self.entry_workplace.get(), aff[0]))
+            
+            # Update Grade: On update juste le titre/classe/echelon du grade ACTUEL
+            # (Sans créer d'historique pour l'instant pour simplifier 'Modifier')
+            cursor.execute(f"SELECT id_grade FROM Change_grade WHERE {col_id} = ? ORDER BY date_av DESC LIMIT 1", (pid,))
+            cg = cursor.fetchone()
+            if cg:
+                cursor.execute("UPDATE Grade SET titre=?, classe=?, echelon=? WHERE id_grade=?",
+                               (self.entry_titre_grade.get(), self.var_grade_classe.get(), self.var_grade_echelon.get(), cg[0]))
+            
+            conn.commit()
+            messagebox.showinfo("Succès", "Personnel mis à jour avec succès.")
+            
+            # Gestion post-update
+            if self.refresh_callback:
+                self.refresh_callback()
+            
+            if self.close_callback:
+                self.close_callback()
+            elif self.controller:
+                 self.controller.frames["DashboardView"].fonc_data, self.controller.frames["DashboardView"].agent_data = self.controller.frames["DashboardView"].fetch_data()
+                 self.controller.show_frame("DashboardView")
+            
+        except Exception as e:
+            conn.rollback()
+            messagebox.showerror("Erreur", f"Erreur lors de la mise à jour : {e}")
         
 
     # ***************************************************************
