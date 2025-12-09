@@ -4,10 +4,22 @@ from datetime import datetime
 import tkinter as tk
 import sqlite3
 import uuid
-#--------
-#connexion à la bd db.sqlite3
-conn = sqlite3.connect('database/db.sqlite3')
+import sys
+import os
+
+# Ajouter le chemin du projet pour les imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(parent_dir)
+sys.path.append(project_root)
+
+# Import de l'utilitaire de base de données
+from logic.db_utils import get_database_path
+
+# Connexion à la base de données (compatible PyInstaller)
+conn = sqlite3.connect(get_database_path())
 cursor = conn.cursor()
+
 
 
 

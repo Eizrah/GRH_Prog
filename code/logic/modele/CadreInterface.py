@@ -2,15 +2,26 @@ import sqlite3
 import Cadre
 from tkinter import ttk
 import tkinter
-import sqlite3
+import sys
+import os
 
+# Ajouter le chemin du projet pour les imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(parent_dir)
+sys.path.append(project_root)
+
+# Import de l'utilitaire de base de données
+from logic.db_utils import get_database_path
 
 mainFenetre = tkinter.Tk()
 mainFenetre.title("Ajout d'un personnel")
 mainFenetre.geometry("800x600")
 
-connexion = sqlite3.connect("database/db.sqlite3")
+# Connexion à la base de données (compatible PyInstaller)
+connexion = sqlite3.connect(get_database_path())
 cursor = connexion.cursor()
+
 
 def recDonne():
     

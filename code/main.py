@@ -1,7 +1,8 @@
-from logic.modele.Cadre import Cadre
-from logic.modele.Grade import Grade
-from logic.modele.Fonctionnaire import Fonctionnaire
+# from logic.modele.Cadre import Cadre
+# from logic.modele.Grade import Grade
+# from logic.modele.Fonctionnaire import Fonctionnaire
 from screen.auth import ModernLoginPage
+
 
 
 if __name__ == "__main__":

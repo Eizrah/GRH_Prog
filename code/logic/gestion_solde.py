@@ -3,7 +3,7 @@ import os
 from datetime import date
 # Import de votre fonction existante
 from logic.conge_cumule import calculer_conge_cumule
-# pour savoir combien de jours de cong on a 
+from logic.db_utils import get_database_path
 def obtenir_solde_reel(id_personne, type_personne, date_entree):
     """
     Calcule le solde disponible = (Droits acquis) - (Congés validés pris)
@@ -22,11 +22,7 @@ def obtenir_solde_reel(id_personne, type_personne, date_entree):
     jours_pris = 0
     
     try:
-        # Chemin DB (à adapter selon votre structure de dossier)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        db_path = os.path.join(base_dir, 'database', 'db.sqlite3')
-        
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(get_database_path())
         cursor = conn.cursor()
         
         # La requête change légèrement selon si c'est un fonctionnaire ou un agent

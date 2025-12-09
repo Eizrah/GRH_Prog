@@ -15,6 +15,7 @@ sys.path.append(project_root)
 # Import de la fonction de calcul de congé cumulé
 from logic.conge_cumule import calculer_conge_cumule
 from logic.GestionAbsences import GestionAbsences
+from logic.db_utils import get_database_path
 
 # --- COULEURS ET POLICES ---
 COLORS = {
@@ -287,14 +288,8 @@ class Dmd(ctk.CTkFrame):
         }
         
         try:
-            # Construire le chemin vers la base de données
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            project_root = os.path.dirname(parent_dir)
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            
             # Connexion à la base de données
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(get_database_path())
             cursor = conn.cursor()
             
             # Chercher d'abord dans la table Fonctionnaire
@@ -580,12 +575,7 @@ class Dmd(ctk.CTkFrame):
     def get_date_embauche_from_matricule(self, matricule):
         """Récupère la date d'embauche sans refaire toute la recherche"""
         try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            project_root = os.path.dirname(parent_dir)
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(get_database_path())
             cursor = conn.cursor()
             
             cursor.execute('SELECT date_entre FROM Fonctionnaire WHERE num_matricule = ?', (matricule,))

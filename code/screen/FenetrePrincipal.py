@@ -110,8 +110,8 @@ class Fenetreprincpale(ctk.CTk):
     def quitter_application(self):
         """Méthode pour se déconnecter et retourner au login"""
         self.destroy()
-        from .Authentification import LoginPage
-        login = LoginPage()
+        from screen.auth import ModernLoginPage
+        login = ModernLoginPage()
         login.mainloop()
 
     def show_frame(self, page_name, **kwargs):

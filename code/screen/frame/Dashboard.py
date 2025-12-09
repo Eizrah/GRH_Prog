@@ -9,6 +9,8 @@ parent_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(parent_dir)
 sys.path.append(project_root)
 
+from logic.db_utils import get_database_path
+
 # --- COULEURS ET POLICES ---
 COLORS = {
     "PRIMARY_BLUE": "#4A90E2",
@@ -103,8 +105,7 @@ class DashboardView(ctk.CTkFrame):
 
     def fetch_data(self):
         try:
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(get_database_path())
             cursor = conn.cursor()
             
             # Fonctionnaires
@@ -167,8 +168,7 @@ class DashboardView(ctk.CTkFrame):
     def fetch_stats(self):
         """Récupère les statistiques des demandes de congé"""
         try:
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(get_database_path())
             cursor = conn.cursor()
             
             # Compte pour chaque table
@@ -323,8 +323,7 @@ class TableauDashboard(ctk.CTkFrame):
             
         try:
              # Import local pour accès DB
-            db_path = os.path.join(project_root, 'database', 'db.sqlite3')
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(get_database_path())
             cursor = conn.cursor()
             
             # Essayer Fonctionnaire

@@ -130,7 +130,7 @@ class NavBar(customtkinter.CTkFrame):
             # Admin: AdminFrame
             self.ValidationAdmin = customtkinter.CTkButton(
                 self.nav_links_frame,
-                text="� Liste des demandes",
+                text="📝 Liste des demandes",
                 fg_color="transparent",
                 text_color=COLORS['TEXT_WHITE'],
                 hover_color=COLORS['HOVER_COLOR'],
@@ -146,7 +146,7 @@ class NavBar(customtkinter.CTkFrame):
             # RH: AddPers + Dmd
             self.addPers = customtkinter.CTkButton(
                 self.nav_links_frame,
-                text="� Ajouter Personne",
+                text="👥➕ Ajouter Personne",
                 fg_color="transparent",
                 text_color=COLORS['TEXT_WHITE'],
                 hover_color=COLORS['HOVER_COLOR'],
@@ -160,7 +160,7 @@ class NavBar(customtkinter.CTkFrame):
             
             self.DemandeBtn = customtkinter.CTkButton(
                 self.nav_links_frame,
-                text="� Demande de Congé",
+                text="📝Demande de Congé",
                 fg_color="transparent",
                 text_color=COLORS['TEXT_WHITE'],
                 hover_color=COLORS['HOVER_COLOR'],
